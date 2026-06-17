@@ -1,0 +1,9 @@
+Einleitung & Motivation
+Ist-Analyse (Tserv & Optimierer)
+Anforderungen an einen OptimScheduler
+Architektur des OptimSchedulers
+Entkopplung vom Tserv
+Containerisierung mit Docker
+Skalierung mit Kubernetes (konzeptionell)
+REST-Schnittstelle & Fehlerbehandlung
+Diskussion & Ausblick

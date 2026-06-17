@@ -1,0 +1,176 @@
+Einleitung & Motivation
+Ist-Analyse (Tserv & Optimierer)
+Anforderungen an Scheduler-Webservice
+-Gegebene Anforderungen
+-Anwendungsfälle
+-Kurz Algorithmen beschreiben grob
+-Zusammenfassung: Im folgenden nur noch Betrachtung von den Algorithmen
+Konzeptionierung
+-übrigen Algorithmen genauer beschreiben
+Evalutation
+Fazit & Ausblick
+
+Scheduling Algorithmen:
+-Kriterien ermitteln mit Thomas
+-FIFO (First In First Out)
+-Priority Scheduling
+-Latest Only / Replace Strategy
+-Event driven Scheduler
+
+Asynchonität:
+-Mehrere Jobs sollen gleichzeitig laufen können
+-Was sind die Grenzen? (Auslastung der Prozessoren?, Fest definierte Anzahl an Paralelen Prozessen?)
+
+Kommunikation in der Schnittstelle:
+-Starten
+-Statusafrage eines Optimiererlaufs (wichtig für Polling)
+-Progress Updates
+-Replace / Update
+-Fehler und Ergebnisrückmeldung
+-Cancellation
+
+Aufbau:
+Client
+  ↓
+Spring Boot (Optimscheduler geschrieben in Java und Framework Maven)
+  ↓
+Scheduler + Queue + Strategies
+  ↓
+Kubernetes API
+  ↓
+Pods (Optimierer als Subprozesse)
+
+Designentscheidungen:
+-Jeder Optimiererlauf ist ein Kubernetes pod
+-Scheduler entscheidet was wann dran ist und in den Pods passiert die Optimierung
+-Async Execution
+-Spring Boot Apllication läuft in eigenem Docker Container
+-REST Schnittstelle wird genutzt, da felxibel, skalierbar, dateibasiert ist schwer, da wir ein verteiltes System nutzen (AWS etc.)
+
+TODO:
+-Kriterien für Scheduling Algorithmen mit Timm festlegen
+-Wie lege ich die Grenzen für die Queue fest? (Auslastung?)
+-Implementieren der Schnittstelle
+
+Ablauf:
+-Mit Timm die Kriterien für einen Optimierer besprechen (Priority, wie steigt diese nach der Zeit?, maxWaitingTime?, maxTime?)
+-Prototypen entwickeln (Optimierer standalones besorgen, Scheduling Schnittstelle implementieren, beachten aller Funktionalitäte, die gewährleistet sein sollten siehe funktionale Anforderungen)
+-Tracken von Messdaten implementieren
+-System Testen und laufen lassen
+-Testdaten erstellen bzw. besorgen
+-Struktur zur Untersuchung der Scheduling Algorithmen entwickeln
+-Tests durchführen und Messdaten sammeln
+-Auswertung der Messdaten
+-Restliche Implementierung des festgelegten Scheduling Algorithmus (Automatisches deployen neuer Optimierer Versionen, ...)
+-Vollständiges Schreiben der Bachelorarbeit
+
+Erweiterung des Problems:
+-Was ist wenn verschiedene Kunden die selbe Schnittstelle benutzen? Wie wird dann zurückverfolgt wer was genutzt hat? Wird dann die Rechenleistung für die Kunden aufgeteilt? Wie wird das dann umgesetzt?
+ 
+Killer Kriterium:
+-Burst Times sind vorher nicht bekannt, also Algortihmen ohne Burst Times nehmen
+-Nur non preemptive Algortihmen benutzen, da das unterbrechen und fortführen von Optimierungsprozessen nicht funktionieren wird
+ 
+Gespräch mit Timm:
+-RT das wichtigste
+-Definitiv priority Queue
+-Weiteres wird getestet nach Performanz
+-Optimierung darf nicht länger als 2 Minuten dauern
+-Standalones sind in Repos (ftlopt etc.). Dort makeFiel ausführen, dann wird die erzeugt (Man braucht gewissen Bibliotheken, wie Boost)
+ 
+Gespräch Frank:
+-Wie schreibe ich Killer Krieterien auf? 
+ =>In der Anforderungsermittlung sage ich, dass es aus den und den Gründen nicht sinnvoll ist zu unterbrechen bzw. die Burst Times schlicht nicht bekannt sind und auch nicht abgeschätzt werden können, da sie stark variieren. 
+ =>Beide Seiten darstellen und gut begründen warum man das eine bzw. das andere benutzt
+ =>Neuer Anwendungsfall: Wenn ein Lkw fällt aus und ein zweiter Lkw fällt aus, dann darf Lkw 1 abgebrochen werden (Wie setze ich das dann später um?)
+ =>Würde das als Logik außerhalb den Schedulers machen, da es was mit der optimierung und nicht mit der Schnitstelle an sich zu tun hat. Soll aber möglich sein, also Abbruch Endpunkt machen.
+
+Scheduling-Verfahren:
+-Non-Preemptive Priority Scheduling (https://www.geeksforgeeks.org/operating-systems/priority-scheduling-in-operating-system/ )
+ ->bruacht keine Burst Time
+ ->Die CPU wird einem laufenden Prozess nicht weggenommen.
+ ->Auch wenn ein Prozess mit höherer Priorität ankommt, muss er warten.
+ ->Der aktuell laufende Prozess wird immer vollständig beendet, bevor der nächste startet.
+ ->Kernaussage: „Einmal gestartet, läuft der Prozess bis zum Ende.“
+-Preemptive Priority Scheduling (https://www.geeksforgeeks.org/operating-systems/priority-scheduling-in-operating-system/ )
+ ->bruacht keine Burst Time
+ ->Die CPU kann einem laufenden Prozess weggenommen werden.
+ ->Wenn ein neuer Prozess mit höherer Priorität ankommt, wird der aktuelle Prozess sofort unterbrochen.
+ ->Der höher priorisierte Prozess wird direkt ausgeführt.
+ ->Kernaussage: „Ein Prozess kann jederzeit durch einen wichtigeren ersetzt werden.“
+-Deadline Monotonic Scheduling (DMS) (https://www.informatik.hu-berlin.de/de/forschung/gebiete/rok/teaching/WS/EMES/Slides/03-priority_scheduling.pdf )
+ ->braucht keine Burst Time
+ ->Feste Prioritäten (Werden einmal zu Beginn gesetzt)
+ ->Priorität ist umgekehrt proportional zur Deadline -> kürzer zur Deadline höhere prio
+ ->Höherpriorisierte Tasks unterbrechen niedrigere Tasks (preemptive algorithm)
+ ->Gilt als optimal bei festen Prioritäten
+ ->Prozzesse die häufiger ablaufen haben eine kürzere Periode
+ ->Kurz: näher an Deadline = hohe Priorität (statisch)
+-Earliest Deadline First (EDF) (https://www.informatik.hu-berlin.de/de/forschung/gebiete/rok/teaching/WS/EMES/Slides/03-priority_scheduling.pdf )
+ ->braucht keine Burst Time
+ ->Wechselnde Prioritäten (Werden mehrfach neu gesetzt)
+ ->Priorität ist umgekehrt proportional zur Deadline -> kürzer zur Deadline höhere prio
+ ->Höherpriorisierte Tasks unterbrechen niedrigere Tasks (preemptive algorithm)
+ ->Gilt als optimal bei festen Prioritäten
+ ->Prozzesse die häufiger ablaufen haben eine kürzere Periode
+ ->Kurz: näher an Deadline = hohe Priorität (statisch)
+-Least Slack Time First (LSF) (https://www.informatik.hu-berlin.de/de/forschung/gebiete/rok/teaching/WS/EMES/Slides/03-priority_scheduling.pdf )
+ ->braucht Burst Time
+ ->Variable Prioritäten
+ ->Priorität basiert auf Slack Time
+ ->Slack = Deadline − verbleibende Ausführungszeit
+ ->Kleinere Slack Time = höhere Priorität
+ ->Höher priorisierte Tasks unterbrechen andere
+ ->Ebenfalls optimal unter Standardannahmen
+ ->Kurz: Wenig Zeitpuffer = höchste Priorität (dynamisch)
+-MultiLevelFeedbackQueue Scheduling (MFQS) (https://www.geeksforgeeks.org/operating-systems/multilevel-feedback-queue-scheduling-mlfq-cpu-scheduling/ , https://pages.cs.wisc.edu/~remzi/OSTEP/cpu-sched-mlfq.pdf , https://s3.us-west-1.wasabisys.com/oscourse/slides/14-MLFQ%20Scheduling.pdf )
+ ->braucht keine Burst Time
+ ->Mehrere Queues mit unterschiedlichen Prioritäten
+ ->Jeder Prozess befindet sich immer in genau einer Queue
+ ->Scheduler wählt immer den Prozess mit der höchsten Priorität
+ ->Priorität passt sich dynamisch an
+ ->Wenn die Zeit, die ein Prozess benötigt zu lange dauert könnte er in eine niedrigere Queue verschoben werden
+ ->Wenn die Wartezeit sehr hoch ist könnte ein Prozess in eine höhere Priorität verschoben werden
+ ->So wird Starvation verhindert
+ ->Queues werden nach und nach abgearbeitet
+ ->Parameters: Number of Queues, scheduling algorithm for each queue, method to upgrade/demote to a higher/lower prio, method to determine to which Queue we move the process
+-MultiLevelQueue (https://www.bing.com/videos/riverview/relatedvideo?q=Scheduling+Algorithmus+MultiLevelQueue&&mid=B856AB0D38B2F4951772B856AB0D38B2F4951772&churl=https%3a%2f%2fwww.youtube.com%2fchannel%2fUCQYMhOMi_Cdj1CEAU-fv80A&FORM=VRDGAR)
+ ->Wie MLFQ nur ohne das verschieben der Prozesse
+-Highest Response Ratio Next (https://www.geeksforgeeks.org/operating-systems/highest-response-ratio-next-hrrn-cpu-scheduling/ )
+ ->braucht Burst Time
+ ->non preemptive
+ ->Response Ratio = (W+S)/S (W= Waiting time so far; S = Burst time)
+ ->Prozess mit höchster Response Ratio werden wird als nächstes bearbeitet
+ ->Keine Starvation
+-Shortest Remaining Time First (https://www.geeksforgeeks.org/dsa/shortest-remaining-time-first-preemptive-sjf-scheduling-algorithm/ )
+ ->braucht Burst Time
+ ->preemptive
+ ->der Algorthmus mit der kürzesten Burst Time wird gestartet
+ ->Starvation möglich
+ 
+ Fragen an Timm:
+ -Können mehrere Optimierer parallel laufen? => Anpassung in Hintergrund und Motivation
+ -Ist die Beschreibung des Tservs korrekt? => Anpassung in Hintergrund und Motivation
+ -Wie werden die Prozesse momentan geschedulet?
+ -Sind das wirklich alle Optimierer die im Tserv im Einsatz sind? (ftlopt, mixor, coflo) => Anpassung in die Optimierer
+ -Was ist die Aufgabe der einzelnen Optimierer
+ 
+ Gespräch mit Frank 10.06. :
+ -Logische sinnhaftigkeit nochmal genauer nachgucken in Kapitel 2 (Mutations)
+ -Frank liest ab 2.4 weiter
+ -Bessere Schriftart zum lesen (Wie bei Word) ohne Serifen
+ -Arbeitsfortschritt bezüglich des OptimSchedulers zu leer und zu optimistisch => Nachbessern
+ 
+ 
+ 
+ TODO:
+ -Quellen bei den Algorithmen einfügen
+ -Quelle für Convoy Effect, Starvation hinzufügen
+ -Timm fragen welche Kriterien es für die Algorithmen gibt
+ -Thomas fragen, ob es für den OptimScheduler eine bevorzugte Authentifizierung gibt
+ 
+ 
+ 
+ 
+ 
+ 

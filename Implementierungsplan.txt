@@ -1,0 +1,295 @@
+1. Implementierungsplan
+(technischer Projektplan für den OptimScheduler)
+1.1 Ziel der Implementierung
+Ziel der Implementierung ist es, einen OptimScheduler zu entwerfen und prototypisch zu realisieren, der:
+
+Optimierungsanfragen über eine REST‑Schnittstelle entgegennimmt
+Optimierer entkoppelt vom Tserv ausführt
+parallele Ausführung erlaubt
+systembedingte Einschränkungen (RAM, Laufzeit, Queue-Größe) berücksichtigt
+definierte Fehlerfälle korrekt behandelt
+
+Die Implementierung dient nicht der Produktivnutzung, sondern der Validierung der Architektur.
+
+1.2 Abgrenzung des Prototyps
+Im Scope (wird umgesetzt):
+
+OptimScheduler als eigenständiger Prozess
+REST‑API (minimaler Umfang)
+Job‑Queue und Job‑Status
+Starten eines Optimierers (z. B. ftlopt)
+Timeout‑ und Fehlerbehandlung
+Rückgabe von Laufzeit und Status
+
+Out of Scope (nur konzeptionell):
+
+Kubernetes‑Cluster
+Mehrknotenbetrieb
+Persistente Datenbank
+Hochverfügbarkeit / Security Hardening
+
+
+1.3 Technische Ausgangsbasis
+
+Betriebssystem: Linux
+Vorhandene Komponenten:
+
+Tserv
+ftlopt Binary
+Shell‑Skripte (doFtlopt.sh)
+
+
+Kommunikationsform:
+
+HTTPS / REST (JSON)
+
+
+
+
+1.4 Schrittweiser Implementierungsplan
+Phase 1: Architektur & Grundlagen (Designphase)
+Ziel: stabile Basis schaffen, kein Code.
+
+Definition der Systemkomponenten:
+
+REST‑API
+Job‑Queue
+Worker‑Management
+
+
+Schnittstellen definieren:
+
+Request‑ und Response‑Formate
+Fehlercodes
+
+
+Definition der Zustände eines Jobs:
+
+queued
+running
+finished
+failed
+timeout
+
+
+
+Ergebnis:
+
+Architekturdiagramm
+REST‑Spezifikation
+Zustandsdiagramm
+
+➡️ Dieses Material geht direkt als Kapitel 4 in deine Arbeit ein.
+
+Phase 2: Grundlegender OptimScheduler (lokal, ohne Docker)
+Ziel: lauffähiger Minimal‑Scheduler.
+Umsetzung:
+
+Start eines HTTP‑Servers
+Implementierung von:
+
+POST /optimize
+GET /optimize/{jobId}
+
+
+Jobverwaltung in Speicherstrukturen
+FIFO‑Queue mit Maximalgröße
+Starten des Optimierers über:
+
+Shell‑Skript (doFtlopt.sh)
+fork/exec oder Prozessaufruf
+
+
+
+Begründung für die Arbeit:
+
+Die zunächst prozessbasierte Umsetzung ermöglicht eine einfache Analyse von Laufzeiten, Fehlerfällen und Ressourcenverhalten ohne zusätzliche Abstraktionsebenen.
+
+
+Phase 3: Parallelität & Warteschlangenlogik
+Ziel: Umsetzung deiner funktionalen Anforderungen.
+
+Maximal zulässige Paralleljobs definieren
+Queue implementieren:
+
+bei Auslastung → neue Jobs warten
+bei voller Queue → Fehler
+
+
+Wenn ein Job endet:
+
+nächster Job wird automatisch gestartet
+
+
+
+Abgedeckte Anforderungen:
+✅ Parallelverarbeitung
+✅ Warteschlange
+✅ Queue‑Überlauf
+✅ Serielles Nachrücken
+
+Phase 4: Ressourcen‑ und Timeout‑Überwachung
+Ziel: robuste Fehlerbehandlung.
+
+Laufzeitüberwachung:
+
+Abbruch bei Timeout
+
+
+Speicherlimit (konzeptionell oder soft):
+
+Startblockierung bei hoher Auslastung
+
+
+Rückgabe von:
+
+Laufzeit
+Abbruchgrund
+
+
+
+Wichtiger Punkt für die Arbeit:
+Hier kannst du schön beschreiben, warum exakte Ressourcenkontrolle ohne Container schwer ist → perfekte Überleitung zu Docker.
+
+Phase 5: Docker-Container (optional / erweitert)
+Ziel: saubere Isolation der Optimierer.
+
+Container pro Optimierer
+Übergabe von:
+
+Input per Volume
+Output per Volume
+
+
+Scheduler startet Container statt Prozesse
+
+In der Arbeit:
+
+Umsetzung optional
+Architektur vollständig beschrieben
+Bewertung: Vor‑ und Nachteile
+
+
+Phase 6: Kubernetes (rein konzeptionell)
+Ziel: Skalierbarkeit und Ausblick.
+
+Mapping:
+
+Job → Kubernetes Job
+Optimierer → Pod
+
+
+Scheduler bleibt zentrale Steuerlogik
+Kubernetes übernimmt:
+
+Ressourcenkontrolle
+Skalierung
+Verteilung
+
+
+
+➡️ Perfekt für Diskussion & Ausblick.
+
+2. Allgemeiner Plan für das Verfassen der Bachelorarbeit
+Jetzt der Teil, der dir Stress spart.
+
+2.1 Empfohlene Gesamtlaufzeit
+Typisch:
+
+10–12 Wochen Gesamtzeit
+
+Aufteilung:
+
+40 % Analyse & Schreiben
+30 % Implementierung
+30 % Dokumentation, Diagramme, Feinschliff
+
+
+2.2 Phasenplan für die Bachelorarbeit
+Phase A: Themenfestlegung & Struktur (Woche 1–2)
+
+Exposé schreiben
+Ziel & Fragestellung klar formulieren
+Grobe Kapitelstruktur festlegen
+Abstimmung mit Betreuer
+
+Ergebnis:
+✅ genehmigtes Thema
+✅ Kapitelübersicht
+
+Phase B: Ist‑Analyse & Grundlagen (Woche 2–4)
+Schreibfokus:
+
+Tserv
+Optimierer
+bestehende Abläufe
+Probleme und Einschränkungen
+
+➡️ Noch kein eigener Code notwendig.
+
+Phase C: Konzeption & Architektur (Woche 4–6)
+Schreibfokus:
+
+Anforderungen
+Scheduler‑Architektur
+REST‑Schnittstelle
+Docker / Kubernetes Konzepte
+
+💡 Parallel kannst du bereits mit der Implementierung starten.
+
+Phase D: Implementierung & Evaluation (Woche 6–9)
+Schreibfokus:
+
+Implementierungsentscheidungen
+Probleme & Lösungen
+Testergebnisse
+Abdeckung der Anforderungen
+
+
+Phase E: Diskussion & Ausblick (Woche 9–10)
+
+Stärken des Ansatzes
+Schwächen
+warum Kubernetes sinnvoll wäre
+mögliche Weiterentwicklung
+
+
+Phase F: Finalisierung (Woche 11–12)
+
+Korrekturlesen
+Diagramme prüfen
+Quellen vervollständigen
+Plagiatsprüfung
+Abgabe
+
+
+2.3 Empfohlene Kapitelstruktur (final)
+
+Einleitung
+Grundlagen & Ist‑Analyse
+Anforderungsanalyse
+Architektur des OptimSchedulers
+Implementierung
+Evaluation
+Diskussion & Ausblick
+Fazit
+
+
+2.4 Typischer Bewertungs‑Sweet‑Spot
+Was Prüfer sehr mögen:
+
+saubere Trennung von:
+
+Analyse
+Konzept
+Umsetzung
+
+
+ehrliche Einschränkungen
+fundierter Ausblick (Kubernetes!)
+
+Was sie nicht erwarten:
+
+perfekte Produktivlösung
+vollständiges Cluster‑Setup
+

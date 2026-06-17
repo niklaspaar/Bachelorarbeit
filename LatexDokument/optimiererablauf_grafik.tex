@@ -1,0 +1,24 @@
+\begin{tikzpicture}[
+    font=\small,
+    box/.style={draw, rounded corners=2pt, minimum width=3cm, minimum height=1.2cm, align=center, fill=blue!5},
+    process/.style={draw, rounded corners=2pt, minimum width=3cm, minimum height=1.1cm, align=center, fill=orange!10},
+    file/.style={draw, rounded corners=1pt, minimum width=3cm, minimum height=0.9cm, align=center, fill=gray!10},
+    arrow/.style={-Stealth, thick}
+]
+
+% --- Knoten ---
+\node[box] (tserv) at (-0.5,1.7) {Tserv-Master\\\scriptsize (Optimierungssteuerung)};
+\node[file] (build) at (4.5,1.7) {Build-Prozess\\\scriptsize (make-Aufruf)};
+\node[file] (bin) at (9.5,1.7) {Optim-Binaries\\\scriptsize ausführbare Optimierung};
+\node[file] (script) at (9.5,-0.5) {Shell-Skript-Template\\\scriptsize startet Optimiererprozess};
+\node[file] (slave) at (4.5,-0.5) {Tserv-Slave\\\scriptsize Optimierungsausführung};
+\node[file] (ausgabe) at (-0.5,-0.5) {Ausgabe\\\scriptsize CSV/JSON};
+
+\draw[->] (tserv) -- node[lbl,above]{startet} (build);
+\draw[->] (build) -- node[lbl,above]{erzeugen} (bin);
+\draw[->] (bin) -- node[lbl,left]{Ausführung durch} (script);
+\draw[->] (script) -- node[lbl,above]{startet} (slave);
+\draw[->] (slave) -- node[lbl,above]{schreibt} (ausgabe);
+\draw[->] (ausgabe) -- node[lbl,right]{wird übergeben an} (tserv);
+
+\end{tikzpicture}

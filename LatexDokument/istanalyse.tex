@@ -1,0 +1,118 @@
+\chapter{\textcolor{red}{Ist-Analyse}}
+Um zu verstehen, warum die Implementierung eines Scheduling-Webservices sinnvoll ist, muss man zunächst verstehen, wie das bestehende System arbeitet. Dieses Kapitel beschreibt nun den Aufbau der aktuellen Implementierung des Tserv, dem zentralen Anwendungsserver der SYNCROTESS-BM-Plattform. Zusätzlich wird der darin beinhaltete Ablauf der Optimierung beschrieben. Abschließend werden die Einschränkungen und Probleme des Ist-Zustands herausgearbeitet, die den Ausgangspunkt und die Voraussetzung für die Konzeption des OptimSchedulers bilden.
+
+\section{\textcolor{red}{SYNCROTESS BM und der Tserv}}
+SYNCROTESS BM ist eine von der INFORM GmbH entwickelte Softwarelösung für die Transportplanung in der Logistikbranche, speziell im Bereich der Baustoffe. Kern dieser Plattform ist der Tserv, ein zentraler Anwendungsserver, welcher die Geschäftslogik der Software beinhaltet, bündelt und die Kommunikation zwischen den verschiedenen Systemkomponenten koordiniert.
+
+Dieser Tserv ist eine komplexe und über Jahre gewachsene Serveranwendung, die mit dem Betriebssystem Linux betrieben wird. Seine Aufgabe ist es, Stammdaten und Datenabfragen zu verarbeiten. Darüber hinaus verarbeitet er CRUD-Operationen zu den einzelnen Feldern. Zusätzlich steuert er den gesamten Lebenszyklus der Transportvorgänge. Ein wesentlicher Bestandteil ist dabei die Transportoptimierung. Auf Anfrage führt der Tserv spezialisierte Optimierungsalgorithmen aus, welche auf Grundlage der vorgelegten Daten optimale Dispositionsentscheidungen bestimmen. Zu den Daten, welche übermittelt werden zählen zum Beispiel Auftragsdaten (Mengen, Zeitfenster, etc.), Öffnungszeiten, Standorte, Fahrzeugtypen.
+
+\input{tserv_grafik}
+
+Der Tserv Master-Prozess wird dabei von außen über eine Mutation angesprochen. Dieser kann dabei durch einen Fork einzelne slave-Prozesse starten. Wenn er von einer Mutation angesprochen wird, schreibt er die Änderung in eine Datenbank und bei einer Datenbankänderung wird der Stand von allen slave-Prozessen angepasst. Der Tserv kann dabei von außen von einem Frontend, einem ERP-System oder einem Telematik-System angesprochen werden.
+
+\section{\textcolor{red}{Optimierer}}
+Die Optimierungslogik ist nicht im Tserv selbst implementiert, sondern in eigenständigen, separaten Programmen - den sogenannten Optimierern. Die Optimierer werden von Tserv zur Laufzeit aufgerufen und berechnen auf Basis einer JSON-Eingabedatei auch eine JSON-Ausgabedatei. Die Optimierer sind dabei in C++ implementiert. Zusätzlich werden externe Bibliotheken, wie \textit{Boost} genutzt und die Optimierer werden mit \texttt{Makefile} gebaut. Diese Skripte sind dann als standalone lauffähig, werden aber ausschließlich durch den Tserv gestartet.
+
+\subsection{\textcolor{red}{coflo}}
+\textit{coflo} ist ein weiterer Optimierer, der speziell für die Zementoptimierung im Bereich Full Truck Load (FTL) entwickelt wurde. Full Truck Load bezeichnet Transporte, wobei ein einzelner Auftrag das gesamte Fahrzeug auslastet - im gegensatz zu Teilladungen, wobei mehrere Aufträge auf einem Fahrzeug gebündelt werden. \textit{coflo} adressiert damit den Transport von einem Massengut, wie beispielsweise Zement, während \textit{ftlopt} auf Beton optimiert ist.
+
+Analog zu \textit{ftlopt} wird auch \textit{coflo} vom Tserv über ein Shell-Skript-Template gestartet und kommuniziert dateibasiert. im Gegensatz zu \textit{ftlopt} nutzt \textit{coflo} als Ein- und Ausgabeformat CSV. Die Herausforderung, die bei der Zementoptimierung existiert ist, dass bei Zement keine Lieferkette existiert und somit eine Abhängigkeit mehrerer Lieferungen voneinander entsteht. Diese Probleme werden durch  \textit{coflo} adressiert.
+
+\begin{verbatim}
+coflo inst
+\end{verbatim}
+
+In dem Kommando sieht mam, dass der coflo Optimierer jediglich eine Eingabedatei erhält. Ein Arbeitsverzeichnis und die Benennung der Ausgabedatei sind fest definiert.
+
+\subsection{\textcolor{red}{ftlopt und MIXOR}}
+\textit{ftlopt} ist das zentrale Optimierungsframework für die Transportoptimierung. Es optimiert die Zuordnung von Kundenaufträgen zu LKW-Schichten und Werken. Die Basis dafür sind verschiedenste Nebenbedingungen und Zielfunktionen. Ein konkreter Optimierungsansatz für den Transportbeton-Geschäftskontext, den ftlopt zur Verfügung stellt, ist der Algorithmus Ready Mix Concrete Operations Research (MIXOR).
+
+MIXOR unterstützt einen Mehrschicht-Betrieb, also sowohl Tag- als auch Nachtschichten; somit ist die Optimierung auch flexibel und über 0 Uhr hinaus möglich. Darüber hinaus unterstützt MIXOR eine dynamische Pausenplanung anhand eines vorgegebenen Musters. Die Ein- und Ausgabe ist jeweils als JSON realisiert. Ein typischer Aufruf sieht wie folgt aus:
+
+\begin{verbatim}
+ftlopt -i ftlopt1.json -w /tmp/workdir/ -s ftlopt1.sol.json
+\end{verbatim}
+
+In dem Kommando sieht man, dass über -u die Eingabedatei übergeben wird. Durch -w wird das Arbeitsverzeichnis übergeben, und mit -s wird die Ausgabedatei mit dem Optimierungsergebnis definiert.
+
+\section{\textcolor{red}{Aktueller Ablauf einer Optimierung}}
+\input{optimiererablauf_grafik}
+
+Die grundlegenden Aufgaben der einzelnen Optimierer sind nun bekannt. Nun wird der grundlegende Ablauf einer Optimierung erläutert. Momentan läuft die Optimierung im System wie folgt ab:
+\begin{itemize}
+    \item Der Tserv enthält die Optimierungssteuerung als internes Modul
+    \item Wenn der Build-Prozess des Tservs läuft, dann werden die Optimierer-Binaries durch den \textit{make}-Aufrufs erzeugt und unter \texttt{\$INSTROOT/bin/} abgelegt
+    \item Dort wird dann das passende Shell-Skript-Template instanziiert und ausgeführt, welches den entsprechenden Optimierer-Prozess startet.
+\end{itemize}
+
+Der Optimierer-Prozess wird dabei als \textit{Fork} gestartet - das bedeutet, dass ein slave-Prozess auf demselben Host-System erzeugt wird, der die Ausführung des Optimierers übernimmt. Dabei wird eine Dateischnittstelle zwischen Tserv und Optimierer verwendet. Der Tserv schreibt also die Eingabedatei im CSV- oder JSON-Format, die der Tserv-Master einliest und weiterverarbeitet.
+
+\subsection{\textcolor{red}{Dispatch-Gruppen und Optimierungstypen}}
+
+Eine Dispatch Gruppe repräsentiert eine logische Einheit der Transportplanung in der Software der INFORM GmbH. Diese stellt eine Planungsregion aus ein oder mehreren Werken dar. für jede Dispatchgruppe wird unabhängig optimiert, und innerhalb jeder Dispatchgruppe gibt es zusätzlich folgende Optimierungstypen:
+
+\begin{itemize}
+    \item \textbf{RT} (Realtime): Dieser Optimierungstyp beschreibt die Echtzeitoptimierung unserer Software. Hier wird auf den direkten Fahrzeugstatus oder Änderungen in der Schichtplanung reagiert, und anhand dessen kann geplant werden. 
+    \item \textbf{OEV0, OEV1, OEV2}: Dieser Optimierungstyp beschreibt die Varianten der \textit{Optimierten Endvorschau}. Planungsläufe, die den Tagesplan auf Basis aller vorliegenden Aufträge und Ressourcen neu berechnen und dem Disponenten als Entscheidungsgrundlage dienen.
+    \item \textbf{PP} (Preplanning):  Dieser Optimierungstyp dient vor allem der Pflege der Fahrzeugflotte für den Folgetag (Menge, Startzeiten) und des Auftragsbuches. Zudem gibt es diesen Optimierungstyp nur in coflo Optimierung.
+\end{itemize}
+
+Die Optimierungstypen sind bei allen Dispatchgruppen identisch. Darüber hinaus wird für jeden dieser Optimierungstypen ein eigener Tserv Fork-Prozess erstellt, sodass RT, OEV0 und PP innerhalb einer Dispatch-Gruppe parallel ausgeführt werden können. Oev1 und Oev2 bilden dabei eine kleine Ausnahme, da diese auf demselben Fork-Prozess laufen und dabei sich immer alternierend mit der Ausführung abwechseln. 
+
+\subsection{\textcolor{red}{Bestehendes Scheduling: Mehrere FIFO-Warteschlangen}}
+Pro Optimierungstyp existiert also ein eigener Fork Prozess. Somit existiert, dann auch eine eigene Warteschlange für jeden dieser Typen. Diese wird nach dem \textit{First-In-First-Out}-Prinzip (FIFO) abgearbeitet. Die Anfrage, die zuerst eintrifft wird also zuerst abgearbeitet. In der Praxis tritt es allerdings eigentlich nicht auf, dass die Warteschlange verwendet werden muss, da man in der Software nicht mehrere RT,PP oder OEV Optimierungen anstoßen kann. Ausnahme bilden hierbei OEV1 und OEV2. Bei diesen Prozessen muss der eine auf den anderen warten, wobei alternierend gewechselt wird. 
+
+Das bedeutet, dass das bestehende System bereits über eine rudimentäre Form von Parallelität und Scheduling verfügt. Diese ist jedoch starr, da sie ausschließlich auf der festen Struktur der Dispatch-Gruppen und Optimierungstypen basiert. Zudem muss das bestehende System über eine entsprechende Anzahl an Kernen verfügen, um gegenseitig Blockierungen zu vermeiden. Die Anzahl der Kerne hängt von der Anzahl der Distpatch-Gruppen und OEV-Tagen ab.
+
+\section{\textcolor{red}{Probleme und Einschränkungen des Ist-Zustands}}
+Der beschriebene Ablauf des Optimierungsablaufs ist funktional und verfügt bereits über eine rudimentäre Form von Scheduling und Parallelität. Das Problem ist, dass der Ablauf dennoch strukturelle Einschränkungen aufweist, die mit steigenden Anforderungen an die Plattform problematisch werden können. So erfordert etwa die Anbindung eines neuen Opti-mierers oder die Einführung eines zusätzlichen Optimierungstyps stets Änderungen am Tserv-Quellcode selbst. Ebenso wächst mit steigender Anzahl von Dispatch-Gruppen und gleichzeitigen Optimierungsanfragen der Druck auf die Hardware des Host-Systems, da alle Prozesse denselben Rechner teilen. Auf der anderen Seite steigen auch die Anforderungen an die externe Nutzbarkeit der Optimierer: Szenarien, in denen externe Systeme oder Services die Optimierung direkt anstoßen sollen, lassen sich mit der bestehenden Architektur nicht abbilden. Die folgenden Abschnitte beschreiben die einzelnen Einschränkungen im Detail.
+
+\subsection{\textcolor{red}{Starre, hartcodierte Parallelitätsstruktur}}
+Die Parallelität im derzeitigen System ist fest an die Struktur der Dispatch-Gruppen und der verschiedenen Optimierungstypen (RT, OEV0, ...) gebunden.Es läuft für jeden Typen ein Prozess parallel, dies passt sich nicht an die Anforderungen an. Eine Anpassung dieser Struktur, beispielsweise um zusätzliche Parallelität unabhängig von Dispatchgruppen oder Optimierungstypen würde die Struktur auflockern und das hinzufügen neuer Optimierungstypen vereinfachen. Dadurch würde auch die Parallelität eine Eigenschaft der Systemarchitektur werden und kein konfiguriertes Verhalten sein.
+
+\subsection{\textcolor{red}{Kein typenübergreifendes Scheduling und fehlende Priorisierung}}
+Jede Warteschlange ist von der jeweils anderen vollständig isoliert. Zudem werden die Warteschlangen strikt nach FIFO abgearbeitet. Eine Priorisierung über eine Typgrenze hinweg ist daher unmöglich. Beispiel: Eine Priorisierung über Typgrenzen hinweg ist nicht möglich: Eine dringende RT-Optimierung kann nicht vorgezogen werden, wenn in ihrer Warteschlange bereits ein anderer RT-Lauf wartet – und sie kann erst recht nicht Ressourcen beanspruchen, die gerade ein OEV- oder PP-Prozess belegt.
+
+Umgekehrt kann ein weniger wichtiger Optimierungstyp keine Ressourcen für einen wichtigeren Typen freigeben. Somit können weniger wichtigere PP-Prozesse auch wichtigere RT-Prozesse überholen.
+
+Durch das Fehlen einer übergeordneten Scheduling-Logik kann es  in zeitkritischen Szenarien zu unnötigen Verzögerungen kommen.
+
+\subsection{\textcolor{red}{Fork-Mechanismus}}
+Dadurch, dass alle Optimierer-Prozesse als Fork auf demselben Host-System gestartet werden, teilen sie sich auch die Ressourcen des Systems, also auch Arbeitsspeicher und CPU-Kerne. Die Rechenkapazität ist damit direkt an die Hardware des Host-Systems gebunden, die sich nur eingeschränkt oder mit hohem Aufwand anpassen lässt. Eine flexiblere Skalierung wäre also wünschenswert.
+
+Ein weiteres Problem welches durch den Fork-Mechanismus entsteht ist, dass immer ein gesamter Tserv für eigentlich nur einen kleinen Teil des Tservs geforkt wird. Dadurch wird zusätzlich unnötig Arbeitsspeicher verbraucht.
+
+\subsection{\textcolor{red}{Ausschließliche Erreichbarkeit über den Tserv}}
+Die Optimierung ist ausschließlich über den Tserv ansprechbar, obwohl die Programme bzw. die Skripte technisch gesehen bereits jetzt als standalone, also unabhängig, lauffähig sind. Dennoch sind sie im derzeitigen System in den Tserv eingebunden. eine unabhängige Nutzung, beispielsweise für eine externe Anbindung oder den Betrieb in anderer Infrastruktur ist nicht möglich ohne auch den Tserv zu nutzen.
+
+\subsection{\textcolor{red}{Fehlende Ressourcenkontrolle und Laufzeitüberwachung}}
+Derzeit existiert keine Überwachung der Systemressourcen bei der Optimierungsausführung. Bei fehlerhaften oder lang laufenden Optimierungen gibt es keinen automatischen Abbruchmechanismus. Zudem wird vor dem start eines Optimierers nicht geprüft, ob genug Arbeitsspeicher für weitere Prozesse vorhanden ist. Dies kann bei hoher Auslastung zu Instabilität des Gesamtsystem führen.
+
+\newpage
+\subsection{\textcolor{red}{Zusammenfassung}}
+
+Tabelle~\ref{tab:istprobleme} fasst die identifizierten Einschränkungen des Ist-Zustands zusammen und stellt ihnen die jeweils angestrebte Verbesserung durch den OptimScheduler gegenüber.
+
+\begin{table}[H]
+    \centering
+    {\setlength{\arrayrulewidth}{0.3pt}
+    \begin{tabular}{p{0.45\textwidth} p{0.45\textwidth}}
+        \hline
+        \textbf{Einschränkung (Ist)} & \textbf{Ziel (Soll)} \\
+        \hline
+        Parallelität starr an Dispatch-Gruppen und Optimierungstypen gebunden; nicht konfigurierbar & Flexibel konfigurierbare Parallelität, unabhängig von fixer Typstruktur \\
+        \hline
+        Warteschlangen isoliert und strikt FIFO; kein typenübergreifendes Scheduling -- weniger wichtige PP-Prozesse können RT-Prozesse überholen & Priorisierungsfähiges Scheduling über alle Optimierungstypen hinweg \\
+        \hline
+        Fork-Mechanismus: Rechenkapazität an Host-Hardware gebunden; Fork des gesamten Tserv verursacht unnötigen Speicherverbrauch & Entkopplung vom Tserv; flexible Skalierbarkeit und gezielter Ressourceneinsatz \\
+        \hline
+        Optimierer ausschließlich über den Tserv erreichbar, obwohl technisch standalone lauffähig & Eigenständiger Webservice \\
+        \hline
+        Keine Ressourcenüberwachung; kein automatischer Abbruch bei fehlerhaften Optimierungen & Timeout-Handling und Überwachung der Systemauslastung \\
+        \hline
+    \end{tabular}}
+    \caption{Einschränkungen des Ist-Zustands und angestrebte Verbesserungen}
+    \label{tab:istprobleme}
+\end{table}
+
+Diese Defizite bilden die fachliche Grundlage für die Anforderungsanalyse im folgenden Kapitel.

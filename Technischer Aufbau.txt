@@ -1,0 +1,322 @@
+1. Motivation und Zielbild
+Ziel ist es, den bestehenden Tserv-basierten Optimierungsablauf so zu kapseln und zu erweitern, dass:
+
+mehrere Optimierer parallel laufen können
+Ressourcen (CPU, RAM) kontrolliert werden
+Anfragen asynchron über REST gestellt werden können
+Warteschlangen & Fehlerszenarien sauber abgebildet sind
+der Optimierer unabhängig vom Tserv-Prozess betrieben werden kann
+
+➡️ Daraus ergibt sich ein klassisches Job-Scheduling- und Orchestrierungsproblem.
+
+2. Framework des OptimSchedulers
+2.1 Rolle des OptimSchedulers
+Der OptimScheduler ist das zentrale Steuermodul zwischen:
+
+Eingehenden Requests (REST)
+Warteschlange
+laufenden Optimierer-Instanzen
+Systemressourcen
+
+Er ist zustandsbehaftet, im Gegensatz zu den Optimierern selbst.
+Kernaufgaben
+Basierend auf deinen funktionalen Anforderungen:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+AufgabeErklärungOptimiererauswahlMapping optimierer_typ → ausführbares Kommando (ftlopt, mixor, …)Job-StartProzess oder Container startenParallelitätMehrere Jobs gleichzeitig zulassenQueue-VerwaltungBlockieren oder Ablehnen bei ÜberlastTimeout-HandlingAbbruch bei zu langer LaufzeitRessourcenüberwachungRAM-/CPU-LimitsFehlerbehandlungKonsistente Fehlercodes
+
+2.2 Interner Aufbau (konzeptionell)
++-----------------------+
+| REST API              |
++-----------------------+
+            |
+            v
++-----------------------+
+| OptimScheduler        |
+| - Job-Queue           |
+| - Worker-Management   |
+| - Resource Monitor    |
++-----------------------+
+     |            |
+     v            v
+ Optimizer A   Optimizer B
+ (ftlopt)      (mixor)
+
+👉 Wichtig für deine Arbeit:
+Der Scheduler kennt den Tserv, aber der Optimierer kennt den Tserv nicht.
+
+3. Unabhängiger Betrieb vom Tserv
+Das ist ein entscheidender Bachelorarbeits-Punkt.
+3.1 Aktueller Zustand (vereinfacht)
+
+Tserv:
+
+baut Optimierer (make)
+ruft Shell-Skripte auf
+blockiert indirekt Ressourcen
+
+
+Optimierer:
+
+sind eigentlich standalone lauffähig
+werden aber fest über Tserv gestartet
+
+
+
+
+3.2 Zielzustand: Entkopplung
+Prinzip
+
+Tserv → Client
+OptimScheduler → Service
+Optimierer → Worker
+
+➡️ Kommunikation nur über definierte Schnittstellen.
+
+3.3 Architekturvariante A: Prozessbasiert (ohne Container)
+Für die Bachelorarbeit gut geeignet, wenn du „nah am System“ bleiben willst.
+
+OptimScheduler ist ein eigenständiger Dienst
+Optimierer werden per:
+
+fork/exec oder
+std::system()
+gestartet
+
+
+Überwachung via:
+
+Exit Codes
+Laufzeit
+Speicherverbrauch (/proc unter Linux)
+
+
+
+✅ Vorteile
+
+Einfach
+Kein Docker-Zwang
+Passt gut zu bestehendem Tserv-Code
+
+❌ Nachteile
+
+Schlechtere Isolation
+Skaliert schlecht auf mehrere Maschinen
+
+
+4. Docker-Container: Kapselung der Optimierer
+Jetzt kommen Docker & Kubernetes sinnvoll ins Spiel.
+4.1 Idee von Docker in deinem Szenario
+Jeder Optimierer läuft in einem eigenen Container
+
+Container enthält:
+
+ftlopt binary
+benötigte Libs
+Startskript (doFtlopt.sh)
+
+
+Input per Volume-Mount
+Output per Volume oder JSON-Response
+
+docker run \
+  -v /data/job123:/work \
+  ftlopt-image \
+  ftlopt -i input.json -s output.json
+
+
+4.2 Vorteile für deine Arbeit
+✅ Saubere Ressourcengrenzen
+
+RAM-Limit
+CPU-Limit
+
+✅ Reproduzierbarkeit
+
+Gleiche Umgebung
+Gleiche Bibliotheken
+
+✅ Sicherheit
+
+Kein direkter Zugriff auf Host
+
+✅ Idealer Übergang zu Kubernetes
+
+4.3 Rolle des OptimSchedulers mit Docker
+Der Scheduler:
+
+erstellt Container
+überwacht Status
+beendet Container bei Timeout
+sammelt Ergebnisse
+
+Du kannst das konzeptionell beschreiben, ohne Docker selbst implementieren zu müssen.
+
+5. Kubernetes-Cluster (Konzeptionell)
+Für die Bachelorarbeit reicht ein Architektur- und Design-Kapitel, keine vollständige Umsetzung.
+5.1 Warum Kubernetes hier Sinn macht
+Kubernetes ist ein verteilter Scheduler – genau dein Problem, nur auf Infrastruktur-Ebene.
+Mapping deiner Anforderungen:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Deine AnforderungKubernetesParallelitätPodsWarteschlangeJob + ControllerRAM-GrenzeResource LimitsTimeoutActiveDeadlineSecondsSkalierungHorizontal Pod Autoscaler
+
+5.2 Zielbild mit Kubernetes
+Tserv
+  |
+  | REST
+  v
+OptimScheduler (Service)
+  |
+  | creates
+  v
+K8s Job --> Pod (Optimierer)
+
+Der OptimScheduler bleibt – Kubernetes übernimmt nur die Ausführung.
+
+6. REST-Schnittstelle
+Sehr wichtig für deine Arbeit.
+6.1 Beispiel-Endpunkte
+HTTPPOST /optimizeAuthorization: Bearer <token>Show more lines
+Request:
+JSON{  "optimizer": "ftlopt",  "payload": "input.json",  "timeout": 300}Show more lines
+Antwort:
+JSON{  "jobId": "abc123",  "status": "queued"}Show more lines
+
+HTTPGET /optimize/abc123Show more lines
+JSON{  "status": "finished",  "duration": 42.3,  "result": "output.json"}Show more lines
+
+6.2 Fehlerabbildung (deine Anforderungen!)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FallHTTP-CodeKeine Auth401Unbekannter Optimierer400Queue voll429Timeout504Payload unvollständig422RAM-Limit erreicht503
+➡️ Das kannst du sehr gut formal beschreiben.
+
+7. Bezug zu deinem bestehenden Tserv-Code
+Du schlägst keine Neuentwicklung vor, sondern:
+
+Tserv bleibt
+OptimScheduler ist neu
+vorhandene Skripte (doFtlopt.sh) werden:
+
+direkt genutzt oder
+in Container eingebettet
+
+
+
+Das ist realistisch und praxisnah, ein großer Pluspunkt für die Bewertung.
+
+8. Mögliche Kapitelstruktur für deine Arbeit
+Vorschlag:
+
+Einleitung & Motivation
+Ist-Analyse (Tserv & Optimierer)
+Anforderungen an einen OptimScheduler
+Architektur des OptimSchedulers
+Entkopplung vom Tserv
+Containerisierung mit Docker
+Skalierung mit Kubernetes (konzeptionell)
+REST-Schnittstelle & Fehlerbehandlung
+Diskussion & Ausblick
+
+
+Wenn du möchtest, können wir im nächsten Schritt:
+
+ein Architekturdiagramm textuell ausarbeiten
+eine Begründung „Warum Kubernetes sinnvoll, aber nicht zwingend ist“ formulieren
+oder ein Kapitel direkt „im Bachelorarbeit-Stil“ ausformulieren
+
+Sag mir einfach, womit wir weitermachen sollen 🙂

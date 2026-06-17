@@ -1,0 +1,5 @@
+dgc -5"BERMCCENTRE" -D"theOptimAlgorithm=Mixor" -D"theOptimAlgorithmFuture=Mixor"
+dgc -5"BERMCNORTH"  -D"theOptimAlgorithm=Mixor" -D"theOptimAlgorithmFuture=Mixor"
+dgc -5"BERMCSOUTH"  -D"theOptimAlgorithm=Mixor" -D"theOptimAlgorithmFuture=Mixor"
+dgc -5"BERMCWEST"   -D"theOptimAlgorithm=Mixor" -D"theOptimAlgorithmFuture=Mixor"
+dgc -5"NLRMC"       -D"theOptimAlgorithm=Mixor" -D"theOptimAlgorithmFuture=Mixor"

@@ -1,0 +1,35 @@
+\chapter{\textcolor{orange}{Einleitung}}
+
+Diese Bachelorarbeit thematisiert die Implementierung und Konzeptionierung eines Webservice zum Scheduling der SYNCROTESS BM Transportoptimierung. Diese Arbeit wird von der INFORM GmbH (Institut für Operations Research und Management GmbH) betreut, einem Softwareunternehmen, das auf Operations Research spezialisiert ist.
+
+\section{\textcolor{orange}{Hintergrund und Motivation}}
+
+Die von INFORM entwickelte Softwarelösung SYNCROTESS BM richtet sich an Unternehmen aus der Baustoff- bzw. der Logistikbranche und deckt unter anderem die Planung von Transporten ab. Ein Bestandteil dieser Lösung ist die Transportoptimierung, wodurch Dispositionsentscheidungen sinnvoll getroffen werden können. Logistische Abläufe sollen dadurch effizienter und schneller optimiert werden. Damit diese Optimierungsläufe durchgeführt werden können, werden spezialisierte Programme - sogenannte Optimierer - eingesetzt.
+
+Derzeit werden die Optimierer innerhalb des \textit{Tserv} ausgeführt. Dies ist das Backend des SYNCROTESS-Produkts für das Transportmanagement. Der \textit{Tserv} enthält die Buisnesslogik und führt die einzelnen Optimierer intern aus. Die Optimierer-Prozesse werden momentan als Fork, also als neuer Prozess auf dem selben Host-System ausgeführt. Dadurch sind die Prozesse durch die Hardware des Host Systems limitiert. Diese kann nur eingeschrankt oder umständlich angepasst werden. Zusammengefasst führt das zu folgenden Einschränkungen:
+\begin{itemize}
+    \item Die Optimierungsprozesse können nicht parallel ausgeführt werden
+    \item Die Optimierer sind ausschließlich über den Tserv ansprechbar
+    \item Geringe Skalierbarkeit
+    \item Keine Priorisierung der Optimierungsprozesse
+\end{itemize}
+
+Insbesondere kann die fehlende Priorisierung und fehlende Parallelisierung der einzelnen Optimierungsprozesse bei zeitkritischen Szenarien zu Problemen führen, wenn die Optimierung durch weniger relevante Prozesse blockiert wird. Es fehlt daher ein Mechanismus, der die Prozesse priorisiert und parallelisiert abarbeiten kann.
+
+\section{\textcolor{orange}{Ziel}}
+
+Das Ziel dieser Arbeit ist es, einen Webservice zu konzipieren und zu implementieren. Der Webservice soll die Ausführung der Optimierungsprozesse vom Tserv entkoppeln und über eine REST-Schnittstelle steuern. Dabei sollen mehrere Optimierungsprozesse parallel laufen können. Eingehende Anfragen sollen über eine Warteschlange koordiniert werden.Grenzen, wie maximale Laufzeit und maximale Arbeitsspeicherauslastung, sollen dabei berücksichtigt werden.
+
+Um die Reihenfolge der abzuarbeitenden Prozesse festlegen zu können, soll eine geeignete Scheduling Strategie gefunden werden. Dazu müssen einzelne Algorithmen untersucht und verglichen werden. Eine Herausforderung dabei ist, dass die Ausführungszeiten der Optimierer im Voraus unbekannt sind und auch nicht ausreichend abgeschätzt werden können. Durch eine Anforderungsanalyse werden verschiedene Scheduling-Verfahren vorgestellt, bewertet und anhand von definierten Kriterien evaluiert.
+
+Die Implementierung einzelner Algorithmen dient zunächst ausschließlich der Evaluierung und ist nicht für den Produktiveinsatz vorgesehen. Stattdessen ist das Ziel, eine fundierte Entscheidungsgrundlage für die Auswahl einer geeigneten Scheduling-Strategie zu schaffen.
+
+\section{\textcolor{orange}{Vorgehensweise}}
+
+Zunächst soll eine Ist-Analyse des bestehenden Systems durchgeführt werden. Dazu wird der Aufbau des Tservs und speziell die Optimierungsverfahren erläutert. 
+
+Darauf aufbauend werden Anforderungen definiert, die der neue Webservice erfüllen muss. Hierbei werden funktionale Anforderungen mithilfe von definierten Anwendungsfällen erarbeitet und technische Randbedingungen festgelegt.
+
+Im Anschluss folgt eine Recherche verschiedener Scheduling-Algorithmen, die hinsichtlich ihrer Eignung bewertet werden. Anschließend werden die Algorithmen, die gegen Ausschlusskriterien verstoßen, verworfen. Die verbleibenden Verfahren werden weiter auf erarbeitete Kriterien untersucht.
+
+Abschließend wird auf der Basis der Untersuchungen ein Scheduling-Algorithmus für die Implementierung des Webservices festgelegt.

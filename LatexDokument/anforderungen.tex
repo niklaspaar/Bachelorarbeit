@@ -1,0 +1,455 @@
+\chapter{\textcolor{red}{Anforderungen an den Scheduler-Webservice}}
+
+Basierend auf der Ist-Analyse und den identifizierten Problemen des Tserv-Systems werden in diesem Kapitel die Anforderungen an den zu entwickelnden OptimScheduler definiert. Diese umfassen funktionale Anforderungen, die das gewünschte Verhalten des Systems beschreiben, sowie technische Anforderungen, die die Umsetzung und Integration in die bestehende Infrastruktur regulieren. Darüber hinaus werden verschiedene Scheduling-Algorithmen vorgestellt und bewertet.
+
+\section{\textcolor{red}{Vorbedingungen}}
+
+Der OptimScheduler wird in einem spezifischen Umfeld entwickelt und betrieben. Die folgenden Vorbedingungen definieren die Rahmenbedingungen:
+
+\begin{itemize}
+    \item Der OptimScheduler wird als Java-basierter Webservice mit Spring Boot entwickelt und über REST-Schnittstellen mit JSON-Format angesprochen
+    \item Der Optimierer-Scheduler wird als eigenständiger Dienst implementiert und ist nicht mehr direkt in den Tserv integriert
+    \item Der Webservice kann auf einem separaten Host betrieben werden, muss jedoch mit dem Tserv kommunizieren können
+    \item Die bestehenden Optimierer-Binaries (ftlopt, coflo, MIXOR, etc.) bleiben unverändert und werden weiterhin als standalone Programme ausgeführt
+    \item Der Scheduler muss mit den bestehenden Optimierern und deren Ein-/Ausgabeformaten (JSON, CSV) kompatibel sein
+    \item Der Scheduler muss mehrere Optimierungsprozesse parallel verwalten und koordinieren können
+    \item Die Implementierung einzelner Scheduling-Algorithmen dient primär der Evaluierung und nicht der Produktivnutzung
+    \item Authentifizierung und Autorisierung sind Anforderungen an die Schnittstelle
+    \item Ressourcenüberwachung und Laufzeitbegrenzung müssen im Scheduler implementiert sein
+\end{itemize}
+
+\section{\textcolor{red}{Anwendungsfälle}}
+
+\subsection{\textcolor{red}{UC1: Optimierungsauftrag einreichen}}
+Ein externer Dienst (z.B. Tserv) sendet einen Optimierungsauftrag mit ausgewähltem Optimierer und Eingabedaten an den Scheduler. Der Scheduler prüft die Anfrage auf Vollständigkeit, speichert sie in der Warteschlange ein und antwortet mit einer Bestätigung (mit eindeutiger Anfrage-ID).
+
+\subsection{\textcolor{red}{UC2: Parallele Optimierungsausführung}}
+Wenn mehrere Optimierungsaufträge eingehen und genug Ressourcen verfügbar sind, werden diese parallel verarbeitet. Der Scheduler weist jedem Auftrag eine Instanz des Optimierers zu und verwaltet die Prozesse unabhängig voneinander.
+
+\subsection{\textcolor{red}{UC3: Warteschlangen-Management}}
+Wenn der Scheduler ausgelastet ist (maximale Anzahl parallel laufender Prozesse erreicht), werden neue Anfragen in einer Warteschlange eingefügt. Sobald ein Optimierungsprozess beendet wird, wird die nächste Anfrage aus der Warteschlange entnommen und ausgeführt.
+
+\subsection{\textcolor{red}{UC4: Ressourcen-Überwachung}}
+Der Scheduler prüft vor dem Start eines neuen Optimierungsprozesses, ob genug Arbeitsspeicher und CPU-Ressourcen verfügbar sind. Sollte nicht genug Speicher zur Verfügung stehen, wird der Prozess nicht gestartet und die Anfrage verbleibt in der Warteschlange.
+
+\subsection{\textcolor{red}{UC5: Laufzeitüberwachung und Timeout}}
+Der Scheduler überwacht die Laufzeit der Optimierungsprozesse. Sollte ein Prozess länger als eine konfigurierbare maximale Laufzeit andauern, wird dieser abgebrochen und ein Timeout-Fehler zurückgegeben.
+
+\subsection{\textcolor{red}{UC6: Optimierungsergebnis abrufen}}
+Nach Abschluss eines Optimierungsprozesses können die Ergebnisse über die REST-Schnittstelle abgerufen werden. Die Antwort enthält die Optimierungsergebnisse sowie Metadaten (Laufzeit, Ressourcenverbrauch, Status).
+
+\subsection{\textcolor{red}{UC7: Prozessabbruch und Priorisierung}}
+Ein Scheduler mit Priorisierungsmechanismus kann laufende Prozesse mit niedriger Priorität unterbrechen oder abbrechen, wenn ein hochprioritärer Auftrag eintrifft.
+
+\section{\textcolor{red}{Funktionale Anforderungen}}
+
+Die funktionalen Anforderungen definieren das beobachtbare Verhalten des Systems in verschiedenen Szenarien:
+
+\begin{table}[H]
+    \centering
+    {\small
+    \begin{tabular}{|p{0.45\textwidth}|p{0.45\textwidth}|}
+        \hline
+        \textbf{Eingabe / Ereignis} & \textbf{Erwartetes Verhalten / Ausgabe} \\
+        \hline
+        Optimiererauswahl \& Payload werden an den Scheduler gesendet & Optimiererergebnis wird korrekt zurückgegeben \\
+        \hline
+        Ein Optimierer läuft \& ein zweiter wird gleichzeitig gestartet & Beide Optimierungen werden parallel verarbeitet \\
+        \hline
+        Scheduler ist ausgelastet \& ein weiterer Optimierer wird angefordert & Anfrage wird in die Warteschlange eingefügt \\
+        \hline
+        Warteschlange ist voll \& ein neuer Optimierer wird angefordert & Der Scheduler gibt eine Fehlermeldung zurück \\
+        \hline
+        Ein Optimierer ist fertig \& Warteschlange ist gefüllt & Der nächste Auftrag aus der Warteschlange wird automatisch gestartet \\
+        \hline
+        Optimiererpayload ist unvollständig oder ungültig & Der Scheduler gibt eine aussagekräftige Fehlermeldung mit Details zurück \\
+        \hline
+        Ein Optimierer beendet seine Ausführung & Der Scheduler gibt die Laufzeit zusammen mit den Ergebnissen zurück \\
+        \hline
+        Arbeitsspeicher stößt an die Belastungsgrenze & Ein weiterer Optimierer kann nicht gestartet werden; Anfrage bleibt in der Warteschlange \\
+        \hline
+        Ein nicht existierender Optimierer wird angefordert & Der Scheduler gibt eine entsprechende Fehlermeldung zurück \\
+        \hline
+        Eine Optimierung überschreitet die Zeitgrenze & Der Scheduler bricht den Prozess ab \& gibt einen Timeout-Fehler zurück \\
+        \hline
+        Eine Anfrage wird ohne Authentifizierung gesendet & Der Scheduler lehnt die Anfrage ab (HTTP 401/403) \\
+        \hline
+        Ein laufender Prozess wird von einem höherprioritären Prozess überschrieben & Der laufende Prozess wird gestoppt; der neue Prozess wird gestartet \\
+        \hline
+    \end{tabular}
+    }
+\end{table}
+
+\section{\textcolor{red}{Technische Anforderungen}}
+
+\subsection{\textcolor{red}{Architektur und Schnittstellen}}
+
+Der OptimScheduler muss folgende technische Anforderungen erfüllen:
+
+\begin{itemize}
+    \item \textbf{REST-API}: Der Scheduler stellt REST-Schnittstellen für das Einreichen, Verwalten und Abrufen von Optimierungsaufträgen zur Verfügung
+    \item \textbf{JSON-Format}: Ein- und Ausgabedaten werden im JSON-Format ausgetauscht
+    \item \textbf{Parallelisierung}: Der Scheduler muss mehrere Optimierungsprozesse parallel verwalten können (angestrebte Konkurrenz: mindestens 5 parallel laufende Prozesse)
+    \item \textbf{Warteschlange}: Eine interne Warteschlange verwaltet ausstehende Anfragen, die auf Verarbeitung warten
+    \item \textbf{Prozessmanagement}: Der Scheduler muss Optimiererprozesse starten, überwachen und beenden können, sowie deren Ressourcenverbrauch tracken
+    \item \textbf{Ressourcenüberwachung}: Das System muss verfügbaren Arbeitsspeicher und CPU-Auslastung vor dem Start neuer Prozesse prüfen
+    \item \textbf{Laufzeitkontrolle}: Der Scheduler muss Laufzeitgrenzen für einzelne Prozesse setzen und durchsetzen können
+\end{itemize}
+
+\subsection{\textcolor{red}{Datenstrukturen}}
+
+Die Optimierungsaufträge werden mit definierten Datenstrukturen verwaltet. Die Ein- und Ausgabeformate sind wie folgt strukturiert:
+
+\subsubsection{\textcolor{red}{Eingabe-Datentypen}}
+
+Eine Optimierungsanfrage des Clients enthält folgende Felder:
+
+\begin{itemize}
+    \item \textbf{optimierer} (String): Typ des Optimierers (z.B. \texttt{ftlopt}, \texttt{coflo}, \texttt{MIXOR})
+    \item \textbf{payload} (JSON-Objekt): Eingabedaten für den Optimierer im JSON-Format
+    \item \textbf{prioritaet} (String, optional): Prioritätsstufe (\texttt{high}, \texttt{normal}, \texttt{low}); Standard: \texttt{normal}
+    \item \textbf{maxLaufzeit} (Integer, optional): Maximale Laufzeit in Sekunden; Standard: 300s
+    \item \textbf{authentifizierung} (String): Authentifizierungstoken oder API-Key
+\end{itemize}
+
+Beispiel einer Eingabe-Anfrage:
+\begin{verbatim}
+{
+  "optimierer": "ftlopt",
+  "payload": { ... },
+  "prioritaet": "high",
+  "maxLaufzeit": 600,
+  "authentifizierung": "token_xyz"
+}
+\end{verbatim}
+
+\subsubsection{\textcolor{red}{Ausgabe-Datentypen}}
+
+Die Antwort des Schedulers enthält folgende Metadaten und Ergebnisse:
+
+\begin{itemize}
+    \item \textbf{auftragsId} (UUID): Eindeutige Identifikation des Auftrags
+    \item \textbf{status} (String): Aktueller Status (\texttt{pending}, \texttt{running}, \texttt{completed}, \texttt{failed}, \texttt{timeout})
+    \item \textbf{optimierer} (String): Verwendeter Optimierer
+    \item \textbf{ergebnis} (JSON-Objekt): Die Ausgabedaten des Optimierers (nur bei \texttt{status=completed})
+    \item \textbf{laufzeit} (Integer): Gemessene Laufzeit in Millisekunden
+    \item \textbf{zeitstempel} (Object): Zeitpunkte: eingegangen, gestartet, beendet (ISO 8601 Format)
+    \item \textbf{fehlermeldung} (String): Fehlerbeschreibung bei Fehlern (nur bei \texttt{status=failed} oder \texttt{timeout})
+    \item \textbf{ressourcenVerbrauch} (Object): Auslastung während der Ausführung
+    \begin{itemize}
+        \item \textbf{speicher} (Integer): Maximaler Speicherverbrauch in MB
+        \item \textbf{cpu} (Float): Durchschnittliche CPU-Auslastung in Prozent
+    \end{itemize}
+\end{itemize}
+
+Beispiel einer erfolgreichen Ausgabe-Antwort:
+\begin{verbatim}
+{
+  "auftragsId": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "optimierer": "ftlopt",
+  "ergebnis": { ... },
+  "laufzeit": 45000,
+  "zeitstempel": {
+    "eingegangen": "2026-06-11T10:30:00Z",
+    "gestartet": "2026-06-11T10:30:05Z",
+    "beendet": "2026-06-11T10:30:50Z"
+  },
+  "ressourcenVerbrauch": {
+    "speicher": 512,
+    "cpu": 87.5
+  }
+}
+\end{verbatim}
+
+\subsection{\textcolor{red}{Robustheit und Fehlerbehandlung}}
+
+\begin{itemize}
+    \item Der Scheduler muss elegant mit Fehlern umgehen und aussagekräftige Fehlermeldungen zurückgeben
+    \item Der Scheduler muss Prozesse korrekt beenden können, auch wenn diese unerwartet terminieren
+    \item Der Scheduler muss nach Abstürzen oder Neustarts seinen Zustand wiederherstellen können (Persistierung der Warteschlange)
+    \item Der Scheduler muss auf Systemressourcen-Probleme (z.B. zu wenig Speicher) reagieren, ohne selbst zu crashen
+\end{itemize}
+
+\section{\textcolor{red}{Beschreibung der Scheduling-Algorithmen}}
+
+Im Folgenden werden verschiedene Scheduling-Strategien vorgestellt und detailliert analysiert, die für den OptimScheduler in Frage kommen. Jeder Algorithmus wird hinsichtlich seiner Funktionsweise, Eigenschaften und Relevanz für das OptimScheduler-Projekt beschrieben.
+
+\subsection{\textcolor{red}{First in First Out (FIFO)}}
+
+\textbf{Funktionsweise:} Aufträge werden in der Reihenfolge ihrer Ankunft verarbeitet. Der erste eingegangene Auftrag wird zuerst bearbeitet; ein neuer Auftrag wird nur dann gestartet, wenn der vorherige abgeschlossen ist.
+
+\textbf{Scheduling-Typ:} Non-Preemptive
+
+\textbf{Burst Times erforderlich:} Nein
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Sehr einfach zu implementieren
+    \item Keine Priorisierung möglich
+    \item Fair: Alle Aufträge werden in der Ankunftsreihenfolge behandelt
+    \item Risiko von \textit{Convoy Effect}: Ein lange laufender Auftrag blockiert alle nachfolgenden Aufträge
+    \item Deterministische Abarbeitung ohne Kontextwechsel
+\end{itemize}
+
+\textbf{Relevanz:} FIFO ist das aktuelle Scheduling-Verfahren im Tserv und dient als Baseline für Vergleiche.
+
+\subsection{\textcolor{red}{Non-Preemptive Priority Scheduling}}
+
+\textbf{Funktionsweise:} Jeder Auftrag erhält eine statische Priorität. Aufträge mit höherer Priorität werden bevorzugt verarbeitet. Ein laufender Prozess wird jedoch nicht unterbrochen (\textit{non-preemptive}); ein neuer Auftrag wird erst nach Beendigung des aktuellen Prozesses gestartet.
+
+\textbf{Scheduling-Typ:} Non-Preemptive
+
+\textbf{Burst Times erforderlich:} Nein
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Einfacher als Preemptive Priority Scheduling zu implementieren
+    \item Ermöglicht Differenzierung wichtiger und weniger wichtiger Aufträge
+    \item Kann zu Starvation von niedrig-prioriären Aufträgen führen, wenn viele hochprioritäre Aufträge ankommen
+    \item Keine Kontextwechsel erforderlich
+    \item Warteschlangen werden nach Priorität organisiert (z.B. separate Queues per Prioritätslevel)
+\end{itemize}
+
+\textbf{Anwendung:} Im OptimScheduler relevant, um unterschiedliche Optimierungstypen (RT, OEV, PP) zu priorisieren, ohne Kontextwechsel-Overhead.
+
+\subsection{\textcolor{red}{Preemptive Priority Scheduling}}
+
+\textbf{Funktionsweise:} Jeder Auftrag hat eine Priorität. Im Gegensatz zu Non-Preemptive kann ein höher-prioritärer Auftrag einen laufenden niedrig-prioriären Auftrag unterbrechen und verdrängen (\textit{preemption}).
+
+\textbf{Scheduling-Typ:} Preemptive
+
+\textbf{Burst Times erforderlich:} Nein
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Ermöglicht priorisierte Abarbeitung mit Unterbrechungsmöglichkeit
+    \item Höher-prioritäre Aufträge erhalten garantiert CPU-Zeit
+    \item Komplexer in der Implementierung (Prozessmanagement erforderlich)
+    \item Risiko: Unterbrochene Prozesse müssen gespeichert und später fortgesetzt werden können
+    \item Kann zu Overhead führen, wenn häufig umgeschaltet wird
+    \item Bessere Responsiveness für wichtige Aufträge
+\end{itemize}
+
+\textbf{Herausforderung:} Die Optimierer-Prozesse müssen für Unterbrechung und Fortführung geeignet sein, was technisch anspruchsvoll ist.
+
+\subsection{\textcolor{red}{Deadline Monotonic Scheduling (DMS)}}
+
+\textbf{Funktionsweise:} DMS ist ein statisches Prioritäts-Scheduling-Verfahren. Aufträge mit kürzeren Deadlines erhalten höhere Priorität. Die Priorität eines Auftrags wird basierend auf seiner Deadline festgelegt und bleibt während der Ausführung konstant.
+
+\textbf{Scheduling-Typ:} Non-Preemptive (kann auch preemptive sein)
+
+\textbf{Burst Times erforderlich:} Optional (für Validierung hilfreich, nicht obligatorisch)
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Erfordert, dass die Deadline (Zeitlimit) für jeden Auftrag bekannt ist
+    \item Statische Prioritätsvergabe basierend auf Deadlines
+    \item Garantiert optimale Einhaltung von Deadlines, wenn die Ausführungszeiten bekannt sind
+    \item Einfacher als dynamische Verfahren
+    \item Für Echtzeitsysteme mit bekannten Deadlines geeignet
+\end{itemize}
+
+\textbf{Relevanz:} Im OptimScheduler relevant, wenn Zeitlimits (maxLaufzeit) als Deadlines interpretiert werden.
+
+\subsection{\textcolor{red}{Earliest Deadline First (EDF)}}
+
+\textbf{Funktionsweise:} EDF ist ein dynamisches Scheduling-Verfahren. Der Auftrag mit der am nächsten bevorstehenden Deadline wird zuerst verarbeitet. Im Gegensatz zu DMS können sich die Prioritäten während der Ausführung ändern, da neue Aufträge mit früheren Deadlines ankommen können.
+
+\textbf{Scheduling-Typ:} Preemptive (typischerweise)
+
+\textbf{Burst Times erforderlich:} Nein (nur Deadlines erforderlich)
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Dynamische Prioritätsvergabe in Echtzeit
+    \item Optimal für Deadline-basierte Scheduling-Probleme (beweisbar)
+    \item Erfordert kontinuierliche Überwachung und Neuberechnung von Prioritäten
+    \item Komplexer in der Implementierung als statische Verfahren
+    \item Bessere Nutzung von Systemressourcen
+    \item Kann zu häufigen Kontextwechseln führen
+\end{itemize}
+
+\textbf{Anwendung:} Geeignet für Szenarien, in denen Zeitlimits (Deadlines) flexibel sind und dynamisch neu priorisiert werden sollen.
+
+\subsection{\textcolor{red}{Least Slack Time First (LSF)}}
+
+\textbf{Funktionsweise:} LSF berechnet für jeden Auftrag die \textit{Slack Time} (Slack = Deadline - Restlaufzeit - aktuelle Zeit). Der Auftrag mit der geringsten Slack Time wird bevorzugt. Dies berücksichtigt sowohl die verbleibende Zeit bis zur Deadline als auch die geschätzte Bearbeitungsdauer.
+
+\textbf{Scheduling-Typ:} Preemptive
+
+\textbf{Burst Times erforderlich:} Ja (für Berechnung der Slack Time notwendig)
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Dynamisches Scheduling-Verfahren
+    \item Berücksichtigt sowohl Deadline als auch Bearbeitungsdauer
+    \item Besser als EDF in Situationen mit variabler Bearbeitungsdauer
+    \item Erfordert genaue Schätzung oder Messung der Restlaufzeit
+    \item Komplexer in der Berechnung als EDF
+    \item Minimiert die Anzahl verpasster Deadlines
+\end{itemize}
+
+\textbf{Herausforderung:} Erfordert Kenntnis oder Schätzung der Restlaufzeit, die bei Optimierern schwierig ist.
+
+\subsection{\textcolor{red}{Highest Response Ratio Next}}
+
+\textbf{Funktionsweise:} Der Response Ratio wird berechnet als: $\frac{\text{Wartezeit} + \text{Bearbeitungszeit}}{\text{Bearbeitungszeit}}$. Der Auftrag mit dem höchsten Response Ratio wird als nächstes verarbeitet. Dies ist ein nicht-präemptives Verfahren.
+
+\textbf{Scheduling-Typ:} Non-Preemptive
+
+\textbf{Burst Times erforderlich:} Ja (für Berechnung des Response Ratio notwendig)
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Berücksichtigt sowohl Wartezeit als auch Bearbeitungsdauer
+    \item Reduziert Starvation von lange wartenden Prozessen
+    \item Fairer als pure SJF
+    \item Erfordert Schätzung der Bearbeitungsdauer
+    \item Einfacher als dynamische Verfahren wie EDF
+    \item Optimiert sowohl durchschnittliche Wartezeit als auch Fairness
+\end{itemize}
+
+\textbf{Relevanz:} Im OptimScheduler relevant, um längere Wartezeiten bei lange wartenden Aufträgen zu kompensieren.
+
+\subsection{\textcolor{red}{Shortest Remaining Time First}}
+
+\textbf{Funktionsweise:} Dies ist die präemptive Variante von Shortest Job First (SJF). Der Prozess mit der geringsten geschätzten Restlaufzeit wird bevorzugt. Wenn ein neuer Auftrag ankommt, dessen Restlaufzeit geringer als die des aktuellen Prozesses ist, wird der aktuelle Prozess unterbrochen.
+
+\textbf{Scheduling-Typ:} Preemptive
+
+\textbf{Burst Times erforderlich:} Ja (für Schätzung der Restlaufzeit notwendig)
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Präemptives Scheduling-Verfahren
+    \item Minimiert durchschnittliche Wartezeit besser als nicht-präemptive Verfahren
+    \item Erfordert genaue Schätzung oder Messung der Restlaufzeit
+    \item Kann zu häufigen Kontextwechseln führen
+    \item Benachteiligt lange Prozesse (Starvation möglich)
+    \item Overhead durch Unterbrechung und Wiederaufnahme
+\end{itemize}
+
+\textbf{Herausforderung:} Bearbeitungszeiten von Optimierern sind im Voraus nicht bekannt, Wiederaufnahme unterbrochener Prozesse ist technisch aufwendig.
+
+\subsection{\textcolor{red}{MultiLevelQueue}}
+
+\textbf{Funktionsweise:} Das System nutzt mehrere FIFO-Warteschlangen mit unterschiedlichen Prioritäten. Jede Prioritätsstufe hat ihre eigene Queue. Der CPU wird einer höheren Queue zugeordnet, wenn diese nicht leer ist; nur wenn alle höheren Queues leer sind, werden Prozesse aus niedrigeren Queues bedient.
+
+\textbf{Scheduling-Typ:} Non-Preemptive
+
+\textbf{Burst Times erforderlich:} Nein
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Einfache Implementierung mit mehreren FIFO-Queues
+    \item Klare Prioritätsstruktur
+    \item Starre Struktur: Prioritäten sind fest zugeordnet
+    \item Kann zu Starvation von niedriger-prioriären Prozessen führen
+    \item Overhead minimal, da keine Kontextwechsel innerhalb einer Queue erforderlich sind
+    \item Skalierbar zu mehreren Prioritätsebenen
+\end{itemize}
+
+\textbf{Anwendung:} Im OptimScheduler relevant, um RT-, OEV- und PP-Optimierungen in separaten Prioritäts-Queues zu organisieren.
+
+\subsection{\textcolor{red}{MultiLevelFeedbackQueue Scheduling (MFQS)}}
+
+\textbf{Funktionsweise:} MFQS erweitert MultiLevelQueue um einen Feedback-Mechanismus. Prozesse wandern zwischen Queues unterschiedlicher Prioritäten, abhängig von ihrem bisherigen Verhalten. Ein neuer Prozess startet in der höchsten Prioritäts-Queue. Wenn er sein Zeitquantum aufbraucht, wird er in eine niedrigere Queue verschoben. Diese Struktur verhindert Starvation, während kurze Prozesse bevorzugt werden.
+
+\textbf{Scheduling-Typ:} Preemptive
+
+\textbf{Burst Times erforderlich:} Nein (verwendet Zeitquanten statt Burst Times)
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item Dynamische Prioritätsvergabe basierend auf Prozessverhalten
+    \item Verhindert Starvation durch Feedback-Mechanismus
+    \item Fairer als reine MultiLevelQueue
+    \item Bevorzugt kurze Prozesse ohne diese zu benachteiligen
+    \item Komplexer in der Implementierung
+    \item Jede Queue hat ein eigenes Zeitquantum, das sich erhöhen kann (z.B. 8ms, 16ms, 32ms, FIFO)
+    \item Sehr adaptiv und flexibel
+\end{itemize}
+
+\textbf{Vorteil:} Kombiniert die Einfachheit von FIFO mit der Flexibilität von Priorisierung und verhindert Starvation eleganter.
+
+\section{\textcolor{red}{Selektierung der Algorithmen}}
+
+\subsection{\textcolor{red}{Ausschlusskriterien}}
+
+Die folgenden Kriterien führen zum Ausschluss von Algorithmen für den OptimScheduler:
+
+\begin{itemize}
+    \item \textbf{Shortest Remaining Time First}: Nicht praktikabel, da die Ausführungszeiten der Optimierer nicht ausreichend a priori bekannt sind und eine genaue Schätzung der Restlaufzeit schwierig ist. Zudem ist das Unterbrechen und Wiederaufnehmen von Optimierungsprozessen technisch anspruchsvoll.
+    
+    \item \textbf{Deadline Monotonic Scheduling (DMS) und Earliest Deadline First (EDF)}: Diese Verfahren sind für harte Echtzeitsysteme mit bekannten Deadlines konzipiert. Für Optimierungsaufträge sind die Deadlines flexibel und nicht kritisch vorab definiert.
+    
+    \item \textbf{Least Slack Time First (LSF)}: Erfordert genaue Schätzung der Restlaufzeit, was bei Optimierern unrealistisch ist. Zudem ist die kontinuierliche Neuberechnung von Slack-Werten komplex.
+    
+    \item \textbf{Highest Response Ratio Next}: Erfordert ebenfalls Schätzung der Bearbeitungsdauer. Für dynamische Optimierer-Workloads weniger geeignet.
+\end{itemize}
+
+\subsection{\textcolor{red}{Evaluierungskriterien}}
+
+Die verbleibenden Algorithmen werden nach folgenden Kriterien bewertet:
+
+\begin{table}[H]
+    \centering
+    {\small
+    \begin{tabular}{|p{0.2\textwidth}|p{0.13\textwidth}|p{0.13\textwidth}|p{0.13\textwidth}|p{0.13\textwidth}|p{0.13\textwidth}|}
+        \hline
+        \textbf{Kriterium} & \textbf{FIFO} & \textbf{Non-Preempt. Prio.} & \textbf{Preempt. Prio.} & \textbf{MLQ} & \textbf{MFQS} \\
+        \hline
+        Implementierungskomplexität & Sehr einfach & Einfach & Mittel & Einfach & Komplex \\
+        \hline
+        Wartbarkeit & Sehr gut & Gut & Gut & Gut & Mittel \\
+        \hline
+        Priorisierungsfähigkeit & Nein & Ja & Ja & Ja & Ja \\
+        \hline
+        Starvation-Schutz & Ja & Nein & Nein & Nein & Ja \\
+        \hline
+        Fairness & Ja & Bedingt & Bedingt & Bedingt & Ja \\
+        \hline
+        Responsiveness & Niedrig & Hoch & Sehr hoch & Hoch & Sehr hoch \\
+        \hline
+        Durchsatz & Mittel & Mittel & Mittel-Hoch & Mittel & Hoch \\
+        \hline
+        Kontextwechsel-Overhead & Keine & Keine & Hoch & Keine & Mittel \\
+        \hline
+    \end{tabular}
+    }
+\end{table}
+
+\subsection{\textcolor{red}{Empfohlene Implementierungsstrategie}}
+
+Basierend auf den Evaluierungskriterien und den Anforderungen des OptimSchedulers werden folgende Algorithmen für die Implementierung und Evaluierung empfohlen:
+
+\begin{enumerate}
+    \item \textbf{FIFO als Baseline}: FIFO dient als Referenzimplementierung und Vergleichsbasis. Es ist das einfachste Verfahren und wird als Basis für Messungen verwendet.
+    
+    \item \textbf{Non-Preemptive Priority Scheduling als Fokus}: Dies ist das Hauptimplementierungsziel. Es ermöglicht Priorisierung ohne den Overhead von Kontextwechseln und ist für die vorliegenden Anforderungen (RT vor OEV vor PP) gut geeignet.
+    
+    \item \textbf{Preemptive Priority Scheduling als Option}: Dieses Verfahren wird implementiert, um zu evaluieren, ob der Overhead von Kontextwechseln durch bessere Responsiveness kompensiert wird. Es ist nur sinnvoll, wenn Optimierer-Prozesse sicher unterbrochen werden können.
+    
+    \item \textbf{MultiLevelQueue (MLQ) als Strukturierungsalternative}: MLQ bietet eine klare organisatorische Struktur und kann effizienter als simples Priority Scheduling sein. Es ist besonders geeignet für die bestehende Dispatch-Gruppen- und Optimierungstyp-Struktur.
+    
+    \item \textbf{MultiLevelFeedbackQueue Scheduling (MFQS) als erweiterte Variante}: MFQS wird als fortgeschrittene Option implementiert, um zu demonstrieren, wie Starvation verhindert werden kann und wie ein adaptiveres System aussehen könnte.
+\end{enumerate}
+
+Die Implementierung sollte modular aufgebaut werden, sodass verschiedene Scheduling-Strategien austauschbar sind und experimentelle Evaluierungen möglich sind. Alle Algorithmen sollten über eine gemeinsame Schnittstelle verfügen, um schnelle Vergleiche zu ermöglichen.
+
+\section{\textcolor{red}{Zusammenfassung}}
+
+Die Anforderungen an den OptimScheduler wurden systematisch erarbeitet und umfassen:
+
+\begin{itemize}
+    \item \textbf{Funktionale Anforderungen}: Der Scheduler muss Optimierungsaufträge parallel verarbeiten, eine Warteschlange verwalten, Ressourcen überwachen und Laufzeiten begrenzen können.
+    
+    \item \textbf{Technische Anforderungen}: Der Scheduler wird als Java-basierter REST-Webservice mit Spring Boot implementiert, mit JSON-Datenaustausch und Unterstützung für parallele Prozessausführung.
+    
+    \item \textbf{Scheduling-Algorithmen}: Zehn verschiedene Algorithmen wurden analysiert. Fünf verbleibende Kandidaten werden für die Implementierung und Evaluierung empfohlen: FIFO, Non-Preemptive Priority Scheduling, Preemptive Priority Scheduling, MultiLevelQueue und MultiLevelFeedbackQueue Scheduling.
+    
+    \item \textbf{Architekturelle Flexibilität}: Die Implementierung soll modular aufgebaut werden, um verschiedene Strategien austauschbar zu ermöglichen und experimentelle Vergleiche zu unterstützen.
+\end{itemize}
+
+Diese Anforderungen bilden die Grundlage für die Konzeptionierung des OptimSchedulers im folgenden Kapitel.

@@ -1,0 +1,5 @@
+dgc -5"BERMCCENTRE" -D"theOptimAlgorithm=Transfer" -D"theOptimAlgorithmFuture=Transfer" -D"theEnableTrafos=0"
+dgc -5"BERMCNORTH"  -D"theOptimAlgorithm=Transfer" -D"theOptimAlgorithmFuture=Transfer" -D"theEnableTrafos=0"
+dgc -5"BERMCSOUTH"  -D"theOptimAlgorithm=Transfer" -D"theOptimAlgorithmFuture=Transfer" -D"theEnableTrafos=0"
+dgc -5"BERMCWEST"   -D"theOptimAlgorithm=Transfer" -D"theOptimAlgorithmFuture=Transfer" -D"theEnableTrafos=0"
+dgc -5"NLRMC"       -D"theOptimAlgorithm=Transfer" -D"theOptimAlgorithmFuture=Transfer" -D"theEnableTrafos=0"

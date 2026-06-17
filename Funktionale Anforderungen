@@ -1,0 +1,42 @@
+Funktionale Anforderungen
+
+Eingabe																	Magie		Ausgabe
+(/)Optimiererauswahl & Payload															Optimiererresult
+(/)Optimierer läuft & Zweiter wird gestartet											Results werden parallel verarbeitet
+(/)Scheduler ist ausgelastet & Weiterer Optimierer wird gestartet						Anfrage kommt in Warteschlange
+(/)Warteschlange ist voll & Optimierer wird gestartet									Fehlermeldung
+(/)Optimierer fertig & Warteschlange gefüllt											Nächste Anfrage aus der Warteschlange wird verarbeitet
+(/)Optimiererpayload bei Anfrage unvollständig											Fehlermeldung & Info
+Einzelner Optimierer ist fertig														Optimierer schickt die Dauer mit zurück
+(/)Arbeitsspeicher stößt an die Belastungsgrenze										Kein weiterer Optimierer kann gestartet werden
+Optimierer wird angesprochen der nicht existiert									Entsprechende Fehlermeldung
+(/)Optimierung dauert zu lange															Entsprechende Fehlermeldung
+(/)Optimierung wird ohne Authentifizierung angesprochen								Entsprechende Fehlermeldung
+Erster Prozess wird gestartet, zweiter Prozess überschreibt den ersten				Erster Prozess wird gestoppt. Zweiter Prozess durchläuft und gibt Result zurück
+
+Wie funktioniert der Tserv?
+-Optimierung läuft im Tserv als eigenes Modul
+-Wenn ausgecheckt ist, dann baut er die Optimierer mit make
+-Unter lib, dann ftLpt ausführen und dann startet die Optimierung
+-Tserv benutzt kein standalone es gibt aber schon ftlOpt Skripte, die als standalone ausführbar wären
+-GB20 / Road / Tserv / ftlopt · GitLab
+-tserv: GB20 / Road / Tserv / road · GitLab
+-GB20 / Road / Tserv / coflo · GitLab Zementoptimierung
+-Beim übersetzen vom tserv liegt in $INSTROOT/bin das ftlopt executable
+-Kommando für die Optimierung: ftlopt -i ftlopt1.json -w /nethome/tziarnet/tmp/ -s ftlopt1.sol.json
+-$SRCRROT/common/optimlib/run_optim.cc für Aufruf der ausgewählten Optimierung
+-Das Skript zum Aufruf von ftlopt/MIXOR aus dem tserv liegt ist $SRCROOT/road/script/doFtlopt.sh.tmpl
+
+
+Kickoff
+-Async IO von Serverseite aus
+-Beschäftigen mit Möglichkeiten und verschiedenen Strategien recherchieren
+-Diskussion über die Schnittstelle (Planung und was passiert, welche Prozesse könnten abgebrochen werden, da sie outdated sind)
+->Mehr Kommunikation als starten und warten von der Optimierung
+-Nicht den Arbeitsspeicherbedarf fokussieren, eher Implementierung der Scheduler Strategie mit bewerten verschiedener Möglichkeiten im Vordergrund
+-Welche Anforderungen an die Strategie gibt es, welche Use Cases, welche Bedingungen müssen abgehandelt werden?
+-Welche Mechanismen des Servers müssen beachtet werden
+-Mit Thomas Abels noch Funktionale Anforderungen abklären und ergänzen
+-Testing der Komponente mit Whitebox Tests (Memory Preasure, Off Limit, etc., Testen der Strategie) => Aufgrundlage dessen Strategien bewerten
+
+

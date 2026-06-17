@@ -1,0 +1,802 @@
+\documentclass[
+    12pt,               
+    a4paper,            
+    ngerman,            
+    parskip=half,       
+    headings=normal,   
+    numbers=enddot,     
+    toc=chapterentrywithdots 
+]{scrreprt}\usepackage[utf8]{inputenc}
+\usepackage{graphicx}  % für \includegraphics
+\usepackage{wrapfig}   % für Textfluss um Bilder
+\usepackage{lipsum}    % für Blindtext (Testzwecke)
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{geometry}
+\usepackage[ngerman]{babel} 
+\usepackage{setspace}
+\usepackage{float}
+\usepackage{csquotes}        
+\usepackage[round]{natbib}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xurl}
+\usepackage{xcolor}
+\setcitestyle{authoryear, numbers=none, maxnames=2, minnames=1, abbreviate=true}
+\usepackage{graphicx} % Required for inserting images
+\usepackage{tikz}
+\usetikzlibrary{positioning}
+\usepackage{charter}
+\usepackage{microtype}
+
+\author{Niklas Paar}
+\date{May 2026}
+
+% --- Variablen definieren ---
+\newcommand{\titel}{Konzeption und Implementierung eines Webservice zum Scheduling der SYNCROTESS BM Transportoptimierung}
+\newcommand{\autor}{Niklas Paar}
+\newcommand{\matrikelnummer}{3637975}
+\newcommand{\einrichtung}{Fachhochschule Aachen}
+\newcommand{\institut}{INFORM - Institut für Operations Research und Management GmbH}
+\newcommand{\erstpruefer}{\mbox{Prof.~Dr.~rer.~nat.~Alexander~Voß}}
+\newcommand{\zweitpruefer}{Frank Fleischhack}
+
+\addto\captionsngerman{%
+  \renewcommand{\contentsname}{Inhaltsverzeichnis}%
+}
+% --------------------------------------------------
+
+\begin{document}
+
+\input{titelblatt.tex} 
+
+\section*{Sperrvermerk}
+Die vorliegende Seminararbeit enthält vertrauliche Informationen der INFORM GmbH. 
+Sie darf ausschließlich von den Prüfern und den berechtigten Personen der Fachhochschule Aachen 
+eingesehen werden. Eine Weitergabe an Dritte sowie eine Veröffentlichung, Vervielfältigung oder 
+Verwertung der Inhalte ist ohne ausdrückliche Genehmigung der INFORM GmbH nicht gestattet.
+\newpage
+
+\tableofcontents
+
+\chapter{\textcolor{orange}{Einleitung}}
+
+Diese Bachelorarbeit thematisiert die Implementierung und Konzeptionierung eines Webservice zum Scheduling (OptimSchedulers) der SYNCROTESS BM Transportoptimierung. Diese Arbeit wird von der INFORM GmbH (Institut für Operations Research und Management GmbH) betreut, einem Softwareunternehmen, das auf Operations Research spezialisiert ist.
+
+\section{\textcolor{orange}{Hintergrund und Motivation}}
+
+Die von INFORM entwickelte Softwarelösung SYNCROTESS BM richtet sich an Unternehmen aus der Baustoff- bzw. der Logistikbranche und deckt unter anderem die Planung von Transporten ab. Ein Bestandteil dieser Lösung ist die Transportoptimierung, wodurch Dispositionsentscheidungen sinnvoll getroffen werden können. Logistische Abläufe sollen dadurch effizienter und schneller optimiert werden. Damit diese Optimierungsläufe durchgeführt werden können, werden spezialisierte Programme - sogenannte Optimierer - eingesetzt.
+
+Derzeit werden die Optimierer innerhalb des \textit{Tserv} ausgeführt. Dies ist das Backend des SYNCROTESS-Produkts für das Transportmanagement. Der \textit{Tserv} enthält die Geschäftslogik und führt die einzelnen Optimierer intern aus. Die Optimierer-Prozesse werden momentan als Fork, also als neuer Prozess auf demselben Host-System, ausgeführt. Dadurch sind die Prozesse durch die Hardware des Host Systems limitiert. Diese kann nur eingeschrankt oder umständlich angepasst werden. Zusammengefasst führt das zu folgenden Einschränkungen:
+\begin{itemize}
+    \item Die Optimierungsprozesse werden nur bedingt parallel ausgeführt
+    \item Die Optimierer sind ausschließlich über den Tserv ansprechbar
+    \item Geringe Skalierbarkeit
+    \item Keine Priorisierung der Optimierungsprozesse
+\end{itemize}
+
+Insbesondere kann die fehlende Priorisierung und die fehlende Parallelisierung der einzelnen Optimierungsprozesse bei zeitkritischen Szenarien zu Problemen führen, wenn die Optimierung durch weniger relevante Prozesse blockiert wird. Es fehlt daher ein Mechanismus, der die Prozesse priorisiert und parallelisiert abarbeiten kann.
+
+\section{\textcolor{orange}{Ziel}}
+
+Das Ziel dieser Arbeit ist es, einen Webservice zu konzipieren und zu implementieren. Der Webservice soll die Ausführung der Optimierungsprozesse vom Tserv entkoppeln und über eine REST-Schnittstelle steuern. Die Optimierung soll also in einem eigenen Prozess und nicht zwingend in dem Tserv laufen. Dabei sollen mehrere Optimierungsprozesse parallel laufen können. Eingehende Anfragen sollen über eine Warteschlange koordiniert werden; Grenzen wie maximale Laufzeit und maximale Arbeitsspeicherauslastung sollen dabei berücksichtigt werden.
+
+Um die Reihenfolge der abzuarbeitenden Prozesse festlegen zu können, soll eine geeignete Scheduling Strategie gefunden werden. Dazu müssen einzelne Algorithmen untersucht und verglichen werden. Eine Herausforderung dabei ist, dass die Ausführungszeiten der Optimierer im Voraus unbekannt sind und auch nicht ausreichend abgeschätzt werden können. Durch eine Anforderungsanalyse werden verschiedene Scheduling-Verfahren vorgestellt, bewertet und anhand von definierten Kriterien evaluiert.
+
+Die Implementierung einzelner Algorithmen dient zunächst ausschließlich der Evaluierung und ist nicht für den Produktiveinsatz vorgesehen. Stattdessen ist das Ziel, eine fundierte Entscheidungsgrundlage für die Auswahl einer geeigneten Scheduling-Strategie zu schaffen.
+
+\section{\textcolor{orange}{Vorgehensweise}}
+
+Zunächst soll eine Ist-Analyse des bestehenden Systems durchgeführt werden. Dazu wird der Aufbau des Tservs und speziell die Optimierungsverfahren erläutert. 
+
+Darauf aufbauend werden Anforderungen definiert, die der neue Webservice erfüllen muss. Hierbei werden funktionale Anforderungen mithilfe von definierten Anwendungsfällen erarbeitet und technische Randbedingungen festgelegt.
+
+Im Anschluss folgt eine Recherche verschiedener Scheduling-Algorithmen, die hinsichtlich ihrer Eignung bewertet werden. Anschließend werden die Algorithmen, die gegen Ausschlusskriterien verstoßen, verworfen. Die verbleibenden Verfahren werden weiter auf erarbeitete Kriterien untersucht.
+
+Abschließend wird auf der Basis der Untersuchungen ein Scheduling-Algorithmus für die Implementierung des Webservices festgelegt.
+
+\chapter{\textcolor{orange}{Ist-Analyse}}
+Um zu verstehen, warum die Implementierung eines Scheduling-Webservices sinnvoll ist, muss man zunächst verstehen, wie das bestehende System arbeitet. Dieses Kapitel beschreibt nun den Aufbau der aktuellen Implementierung des Tserv, dem zentralen Anwendungsserver der SYNCROTESS-BM-Plattform. Zusätzlich wird der darin beinhaltete Ablauf der Optimierung beschrieben. Abschließend werden die Einschränkungen und Probleme des Ist-Zustands herausgearbeitet, die den Ausgangspunkt und die Voraussetzung für die Konzeption des OptimSchedulers bilden.
+
+\section{\textcolor{orange}{SYNCROTESS BM und der Tserv}}
+SYNCROTESS BM ist eine von der INFORM GmbH entwickelte Softwarelösung für die Transportplanung in der Logistikbranche, speziell im Bereich der Baustoffe. Kern dieser Plattform ist der Tserv, ein zentraler Anwendungsserver, welcher die Geschäftslogik der Software beinhaltet, bündelt und die Kommunikation zwischen den verschiedenen Systemkomponenten koordiniert.
+
+Dieser Tserv ist eine komplexe und über Jahre gewachsene Serveranwendung, die mit dem Betriebssystem Linux betrieben wird. Seine Aufgabe ist es, Stammdaten und Datenabfragen zu verarbeiten. Darüber hinaus verarbeitet er CRUD-Operationen zu den einzelnen Feldern. Zusätzlich steuert er den gesamten Lebenszyklus der Transportvorgänge. Ein wesentlicher Bestandteil ist dabei die Transportoptimierung. Auf Anfrage führt der Tserv spezialisierte Optimierungsalgorithmen aus, welche auf Grundlage der vorgelegten Daten optimale Dispositionsentscheidungen bestimmen. Zu den Daten, welche übermittelt werden zählen zum Beispiel Auftragsdaten (Mengen, Zeitfenster, etc.), Öffnungszeiten, Standorte, Fahrzeugtypen.
+
+\input{tserv_grafik}
+
+Der Tserv Master-Prozess wird dabei von außen über eine Mutation angesprochen. Dieser kann dabei durch einen Fork einzelne slave-Prozesse starten. Wenn er von einer Mutation angesprochen wird, schreibt er die Änderung in eine Datenbank und bei einer Datenbankänderung wird der Stand von allen slave-Prozessen angepasst. Der Tserv kann dabei von außen von einem Frontend, einem ERP-System oder einem Telematik-System angesprochen werden.
+
+\section{\textcolor{orange}{Optimierer}}
+Die Optimierungslogik ist nicht im Tserv selbst implementiert, sondern in eigenständigen, separaten Programmen - den sogenannten Optimierern. Die Optimierer werden von Tserv zur Laufzeit aufgerufen und berechnen auf Basis einer JSON-Eingabedatei auch eine JSON-Ausgabedatei. Die Optimierer sind dabei in C++ implementiert. Zusätzlich werden externe Bibliotheken, wie \textit{Boost} genutzt und die Optimierer werden mit \texttt{Makefile} gebaut. Diese Skripte sind dann als standalone lauffähig, werden aber ausschließlich durch den Tserv gestartet.
+
+\subsection{\textcolor{orange}{coflo}}
+\textit{coflo} ist ein weiterer Optimierer, der speziell für die Zementoptimierung im Bereich Full Truck Load (FTL) entwickelt wurde. Full Truck Load bezeichnet Transporte, wobei ein einzelner Auftrag das gesamte Fahrzeug auslastet - im gegensatz zu Teilladungen, wobei mehrere Aufträge auf einem Fahrzeug gebündelt werden. \textit{coflo} adressiert damit den Transport von einem Massengut, wie beispielsweise Zement, während \textit{ftlopt} auf Beton optimiert ist.
+
+Analog zu \textit{ftlopt} wird auch \textit{coflo} vom Tserv über ein Shell-Skript-Template gestartet und kommuniziert dateibasiert. im Gegensatz zu \textit{ftlopt} nutzt \textit{coflo} als Ein- und Ausgabeformat CSV. Die Herausforderung, die bei der Zementoptimierung existiert ist, dass bei Zement keine Lieferkette existiert und somit eine Abhängigkeit mehrerer Lieferungen voneinander entsteht. Diese Probleme werden durch  \textit{coflo} adressiert.
+
+\begin{verbatim}
+coflo inst
+\end{verbatim}
+
+In dem Kommando sieht mam, dass der coflo Optimierer jediglich eine Eingabedatei erhält. Ein Arbeitsverzeichnis und die Benennung der Ausgabedatei sind fest definiert.
+
+\subsection{\textcolor{orange}{ftlopt und MIXOR}}
+\textit{ftlopt} ist das zentrale Optimierungsframework für die Transportoptimierung. Es optimiert die Zuordnung von Kundenaufträgen zu LKW-Schichten und Werken. Die Basis dafür sind verschiedenste Nebenbedingungen und Zielfunktionen. Ein konkreter Optimierungsansatz für den Transportbeton-Geschäftskontext, den ftlopt zur Verfügung stellt, ist der Algorithmus Ready Mix Concrete Operations Research (MIXOR).
+
+MIXOR unterstützt einen Mehrschicht-Betrieb, also sowohl Tag- als auch Nachtschichten; somit ist die Optimierung auch flexibel und über 0 Uhr hinaus möglich. Darüber hinaus unterstützt MIXOR eine dynamische Pausenplanung anhand eines vorgegebenen Musters. Die Ein- und Ausgabe ist jeweils als JSON realisiert. Ein typischer Aufruf sieht wie folgt aus:
+
+\begin{verbatim}
+ftlopt -i ftlopt1.json -w /tmp/workdir/ -s ftlopt1.sol.json
+\end{verbatim}
+
+In dem Kommando sieht man, dass über -u die Eingabedatei übergeben wird. Durch -w wird das Arbeitsverzeichnis übergeben, und mit -s wird die Ausgabedatei mit dem Optimierungsergebnis definiert.
+
+\section{\textcolor{orange}{Aktueller Ablauf einer Optimierung}}
+\input{optimiererablauf_grafik}
+
+Die grundlegenden Aufgaben der einzelnen Optimierer sind nun bekannt. Nun wird der grundlegende Ablauf einer Optimierung erläutert. Momentan läuft die Optimierung im System wie folgt ab:
+\begin{itemize}
+    \item Der Tserv enthält die Optimierungssteuerung als internes Modul
+    \item Wenn der Build-Prozess des Tservs läuft, dann werden die Optimierer-Binaries durch den \textit{make}-Aufrufs erzeugt und unter \texttt{\$INSTROOT/bin/} abgelegt
+    \item Dort wird dann das passende Shell-Skript-Template instanziiert und ausgeführt, welches den entsprechenden Optimierer-Prozess startet.
+\end{itemize}
+
+Der Optimierer-Prozess wird dabei als \textit{Fork} gestartet - das bedeutet, dass ein slave-Prozess auf demselben Host-System erzeugt wird, der die Ausführung des Optimierers übernimmt. Dabei wird eine Dateischnittstelle zwischen Tserv und Optimierer verwendet. Der Tserv schreibt also die Eingabedatei im CSV- oder JSON-Format, die der Tserv-Master einliest und weiterverarbeitet.
+
+\subsection{\textcolor{orange}{Dispatch-Gruppen und Optimierungstypen}}
+
+Eine Dispatch Gruppe repräsentiert eine logische Einheit der Transportplanung in der Software der INFORM GmbH. Diese stellt eine Planungsregion aus ein oder mehreren Werken dar. für jede Dispatchgruppe wird unabhängig optimiert, und innerhalb jeder Dispatchgruppe gibt es zusätzlich folgende Optimierungstypen:
+
+\begin{itemize}
+    \item \textbf{RT} (Realtime): Dieser Optimierungstyp beschreibt die Echtzeitoptimierung unserer Software. Hier wird auf den direkten Fahrzeugstatus oder Änderungen in der Schichtplanung reagiert, und anhand dessen kann geplant werden. 
+    \item \textbf{OEV0, OEV1, OEV2}: Dieser Optimierungstyp beschreibt die Varianten der \textit{Optimierten Endvorschau}. Planungsläufe, die den Tagesplan auf Basis aller vorliegenden Aufträge und Ressourcen neu berechnen und dem Disponenten als Entscheidungsgrundlage dienen.
+    \item \textbf{PP} (Preplanning):  Dieser Optimierungstyp dient vor allem der Pflege der Fahrzeugflotte für den Folgetag (Menge, Startzeiten) und des Auftragsbuches. Zudem gibt es diesen Optimierungstyp nur in coflo Optimierung.
+\end{itemize}
+
+Die Optimierungstypen sind bei allen Dispatchgruppen identisch. Darüber hinaus wird für jeden dieser Optimierungstypen ein eigener Tserv Fork-Prozess erstellt, sodass RT, OEV0 und PP innerhalb einer Dispatch-Gruppe parallel ausgeführt werden können. Oev1 und Oev2 bilden dabei eine kleine Ausnahme, da diese auf demselben Fork-Prozess laufen und dabei sich immer alternierend mit der Ausführung abwechseln. 
+
+\subsection{\textcolor{orange}{Bestehendes Scheduling: Mehrere FIFO-Warteschlangen}}
+Pro Optimierungstyp existiert also ein eigener Fork Prozess. Somit existiert, dann auch eine eigene Warteschlange für jeden dieser Typen. Diese wird nach dem \textit{First-In-First-Out}-Prinzip (FIFO) abgearbeitet. Die Anfrage, die zuerst eintrifft wird also zuerst abgearbeitet. In der Praxis tritt es allerdings eigentlich nicht auf, dass die Warteschlange verwendet werden muss, da man in der Software nicht mehrere RT,PP oder OEV Optimierungen anstoßen kann. Ausnahme bilden hierbei OEV1 und OEV2. Bei diesen Prozessen muss der eine auf den anderen warten, wobei alternierend gewechselt wird. 
+
+Das bedeutet, dass das bestehende System bereits über eine rudimentäre Form von Parallelität und Scheduling verfügt. Diese ist jedoch starr, da sie ausschließlich auf der festen Struktur der Dispatch-Gruppen und Optimierungstypen basiert. Zudem muss das bestehende System über eine entsprechende Anzahl an Kernen verfügen, um gegenseitig Blockierungen zu vermeiden. Die Anzahl der Kerne hängt von der Anzahl der Distpatch-Gruppen und OEV-Tagen ab.
+
+\section{\textcolor{orange}{Probleme und Einschränkungen des Ist-Zustands}}
+Der beschriebene Ablauf des Optimierungsablaufs ist funktional und verfügt bereits über eine rudimentäre Form von Scheduling und Parallelität. Das Problem ist, dass der Ablauf dennoch strukturelle Einschränkungen aufweist, die mit steigenden Anforderungen an die Plattform problematisch werden können. So erfordert etwa die Anbindung eines neuen Opti-mierers oder die Einführung eines zusätzlichen Optimierungstyps stets Änderungen am Tserv-Quellcode selbst. Ebenso wächst mit steigender Anzahl von Dispatch-Gruppen und gleichzeitigen Optimierungsanfragen der Druck auf die Hardware des Host-Systems, da alle Prozesse denselben Rechner teilen. Auf der anderen Seite steigen auch die Anforderungen an die externe Nutzbarkeit der Optimierer: Szenarien, in denen externe Systeme oder Services die Optimierung direkt anstoßen sollen, lassen sich mit der bestehenden Architektur nicht abbilden. Die folgenden Abschnitte beschreiben die einzelnen Einschränkungen im Detail.
+
+\subsection{\textcolor{orange}{Starre, hartcodierte Parallelitätsstruktur}}
+Die Parallelität im derzeitigen System ist fest an die Struktur der Dispatch-Gruppen und der verschiedenen Optimierungstypen (RT, OEV0, ...) gebunden.Es läuft für jeden Typen ein Prozess parallel, dies passt sich nicht an die Anforderungen an. Eine Anpassung dieser Struktur, beispielsweise um zusätzliche Parallelität unabhängig von Dispatchgruppen oder Optimierungstypen würde die Struktur auflockern und das hinzufügen neuer Optimierungstypen vereinfachen. Dadurch würde auch die Parallelität eine Eigenschaft der Systemarchitektur werden und kein konfiguriertes Verhalten sein.
+
+\subsection{\textcolor{orange}{Kein typenübergreifendes Scheduling und fehlende Priorisierung}}
+Jede Warteschlange ist von der jeweils anderen vollständig isoliert. Zudem werden die Warteschlangen strikt nach FIFO abgearbeitet. Eine Priorisierung über eine Typgrenze hinweg ist daher unmöglich. Beispiel: Eine Priorisierung über Typgrenzen hinweg ist nicht möglich: Eine dringende RT-Optimierung kann nicht vorgezogen werden, wenn in ihrer Warteschlange bereits ein anderer RT-Lauf wartet – und sie kann erst recht nicht Ressourcen beanspruchen, die gerade ein OEV- oder PP-Prozess belegt.
+
+Umgekehrt kann ein weniger wichtiger Optimierungstyp keine Ressourcen für einen wichtigeren Typen freigeben. Somit können weniger wichtigere PP-Prozesse auch wichtigere RT-Prozesse überholen.
+
+Durch das Fehlen einer übergeordneten Scheduling-Logik kann es  in zeitkritischen Szenarien zu unnötigen Verzögerungen kommen.
+
+\subsection{\textcolor{orange}{Fork-Mechanismus}}
+Dadurch, dass alle Optimierer-Prozesse als Fork auf demselben Host-System gestartet werden, teilen sie sich auch die Ressourcen des Systems, also auch Arbeitsspeicher und CPU-Kerne. Die Rechenkapazität ist damit direkt an die Hardware des Host-Systems gebunden, die sich nur eingeschränkt oder mit hohem Aufwand anpassen lässt. Eine flexiblere Skalierung wäre also wünschenswert.
+
+Ein weiteres Problem welches durch den Fork-Mechanismus entsteht ist, dass immer ein gesamter Tserv für eigentlich nur einen kleinen Teil des Tservs geforkt wird. Dadurch wird zusätzlich unnötig Arbeitsspeicher verbraucht.
+
+\subsection{\textcolor{orange}{Ausschließliche Erreichbarkeit über den Tserv}}
+Die Optimierung ist ausschließlich über den Tserv ansprechbar, obwohl die Programme bzw. die Skripte technisch gesehen bereits jetzt als standalone, also unabhängig, lauffähig sind. Dennoch sind sie im derzeitigen System in den Tserv eingebunden. eine unabhängige Nutzung, beispielsweise für eine externe Anbindung oder den Betrieb in anderer Infrastruktur ist nicht möglich ohne auch den Tserv zu nutzen.
+
+\subsection{\textcolor{orange}{Fehlende Ressourcenkontrolle und Laufzeitüberwachung}}
+Derzeit existiert keine Überwachung der Systemressourcen bei der Optimierungsausführung. Bei fehlerhaften oder lang laufenden Optimierungen gibt es keinen automatischen Abbruchmechanismus. Zudem wird vor dem start eines Optimierers nicht geprüft, ob genug Arbeitsspeicher für weitere Prozesse vorhanden ist. Dies kann bei hoher Auslastung zu Instabilität des Gesamtsystem führen.
+
+\subsection{\textcolor{orange}{Zusammenfassung}}
+
+Tabelle~\ref{tab:istprobleme} fasst die identifizierten Einschränkungen des Ist-Zustands zusammen und stellt ihnen die jeweils angestrebte Verbesserung durch den OptimScheduler gegenüber.
+
+\begin{table}[H]
+    \centering
+    {\setlength{\arrayrulewidth}{0.3pt}
+    \begin{tabular}{p{0.45\textwidth} p{0.45\textwidth}}
+        \hline
+        \textbf{Einschränkung (Ist)} & \textbf{Ziel (Soll)} \\
+        \hline
+        Parallelität starr an Dispatch-Gruppen und Optimierungstypen gebunden; nicht konfigurierbar & Flexibel konfigurierbare Parallelität, unabhängig von fixer Typstruktur \\
+        \hline
+        Warteschlangen isoliert und strikt FIFO; kein typenübergreifendes Scheduling -- weniger wichtige PP-Prozesse können RT-Prozesse überholen & Priorisierungsfähiges Scheduling über alle Optimierungstypen hinweg \\
+        \hline
+        Fork-Mechanismus: Rechenkapazität an Host-Hardware gebunden; Fork des gesamten Tserv verursacht unnötigen Speicherverbrauch & Entkopplung vom Tserv; flexible Skalierbarkeit und gezielter Ressourceneinsatz \\
+        \hline
+        Optimierer ausschließlich über den Tserv erreichbar, obwohl technisch standalone lauffähig & Eigenständiger Webservice \\
+        \hline
+        Keine Ressourcenüberwachung; kein automatischer Abbruch bei fehlerhaften Optimierungen & Timeout-Handling und Überwachung der Systemauslastung \\
+        \hline
+    \end{tabular}}
+    \caption{Einschränkungen des Ist-Zustands und angestrebte Verbesserungen}
+    \label{tab:istprobleme}
+\end{table}
+
+Diese Defizite bilden die fachliche Grundlage für die Anforderungsanalyse im folgenden Kapitel.
+
+
+\chapter{\textcolor{red}{Anforderungen an den Scheduler-Webservice}}
+Da nun die Probleme des Ist-Zustandes des Tserv-Systems identifiziert wurden, werden in diesem Kapitel nun die Anforderungen an den zu entwickelnden OptimScheduler definiert. Diese Anforderungen setzen sich aus funktionalen Anforderungen, die das erwartete Verhalten des Systems beschreiben, sowie technische, also nicht funktonale, Anforderungen, die die Umsetzung und Integration in die bestehende Infrastruktur aufzeigen und dabei Grenzen für die Scheduling-Algorithmen setzen. Desweiteren werden die verschiedenen Scheduling Algortihmen vorgestellt und anschließend wird eine Vorselektion dieser stattfinden.
+
+\section{\textcolor{red}{Vorbedingungen}}
+Der Optimscheduler soll in einem speziellen Umfeld entwickelt und betrieben werden. Die folgenden Vorbedingungen definieren die Rahmenbedingungen:
+
+\begin{itemize}
+    \item Der OptimScheduler wird als Webservice in Java entwickelt. Dabei wird das Framework Spring Boot verwendet
+    \item Angesprochen wird der Scheduler über eine REST-Schnittstelle
+    \item Der OptimScheduler wird als alleinstehender Dienst implementiert, ohne direkte Verbindung mit dem Tserv
+    \item Er kann auf einem separaten System gehostet werden, muss aber mit dem Tserv kommunizieren können
+    \item Der Scheduler muss mit den Ein- und Ausgabeformaten JSON und CSV kompatibel sein
+    \item Der OptimScheduler soll mehrere Optimierungen parallel bearbeiten können
+    \item Die Schnittstelle muss auch eine Authentifizierung abfragen
+\end{itemize}
+
+\section{\textcolor{red}{Anwendungsfälle}}
+Im nachfolgenden wird häufig von Warteschlangen gesprochen. Damit ist nicht eine klassische FIFO-Warteschlange gemeint, sondern eine Warteschlange, die nach dem später festgelegten Scheduling-Algorithmus abgearbeitet wird.
+
+\subsection{\textcolor{red}{Optimierungsauftrag einreichen mit leerer Warteschlange, kein Optimierer läuft}}
+Ein externer Dienst (z.B. der Tserv) versendet einen Optimierungsauftrag an den Scheduler. Dieser Auftrag enthält den Payload. Dieser besteht unter anderem aus der Eingabedatei (JSON/CSV) und der Auswahl des Optimierers. Der Scheduler prüft die Daten und die Optimiererauswahl. Da die Warteschlange leer ist und kein Optimierer läuft, kann der Auftrag direkt bearbeitet und anschließend die Ausgabe zurück an den externen Dienst gesendet werden.
+
+\subsection{\textcolor{red}{Optimierungsauftrag einreichen mit leerer Warteschlange, ein Optimierer läuft}}
+Wie auch bei dem vorherigen Anwendungsfall kommt der Auftrag von einem externen Dienst. Ein Optimierer läuft im Moment. Da mehrere parallel laufen können, wird der Auftrag parallel abgearbeitet und die Ausgabe wird anschließend zurück an den Absender geschickt.
+
+\subsection{\textcolor{red}{Optimierungsauftrag einreichen mit gefüllter Warteschlange, maximale Optimierer laufen}}
+Wie auch bei den vorherigen Anwendungsfällen kommt hier ein Auftrag von einem externen Dienst an. Anschließend stellt der Scheduler fest, dass die maximale Anzahl an Optimierern läuft und die Warteschlange gefüllt ist. Anschließend wird der Auftrag in die Warteschlange hinzugefügt. Die Warteschlange wird anschließend nach dem festgelegten Algorithmus abgearbeitet, und irgendwann kommt der Auftrag dran; anschließend wird das Ergebnis an den Absender geschickt.
+
+\subsection{\textcolor{red}{Optimierungsauftrag einreichen mit voller Warteschlange, maximale Optimierer laufen}}
+Wie auch bei den vorherigen Anwendungsfällen kommt hier ein Auftrag von einem externen Dienst an. Anschließend stellt der Scheduler fest, dass die maximale Anzahl an Aufträgen in der Warteschlange bereits erreicht ist. Deshalb wird hier eine Fehlermeldung an den Absender gesendet, die beinhaltet, dass die maximale Auslastung des OptimSchedulers erreicht sei.
+
+\subsection{\textcolor{red}{Optimierungsauftrag in Warteschlange, Optimierer wird fertig}}
+Wenn man eine Warteschlange hat, wird diese irgendwann abgearbeitet. Wenn also ein Auftrag in der Warteschlange ist, wird dieser begonnen, sobald ein Auftrag abgearbeitet wurde und somit ein Platz frei wird.
+
+\subsection{\textcolor{red}{Eingabedaten unvollständig}}
+Wenn ein Auftrag im Scheduler ankommt, der unvollständige oder nicht zusammenpassende Daten beinhaltet, wird eine passende Fehlermeldung an den Absender zurückgesendet. Darunter zählt zum Beispiel ein ungültiges Eingabeformat oder eine leere Eingabedatei. EIn weiterer Grund für eine solche Fehlermeldung könnte die fehlende Auswahl an Optimierern sein.
+
+\subsection{\textcolor{red}{Arbeitsspeicher wird überlastet}}
+Es kommt erneut ein Auftrag von einem externen Dienst an. Nun ist die Warteschlange leer und ein Platz bei den bereits laufenden Prozessen frei. Das Problem ist nun, dass die Auslastung des Arbeitsspeichers allerdings schon ans Maximum geht. In diesem Fall soll der Optimierungsauftrag warten, bis die Auslastung wieder in einem unkritischen Bereich ist.
+
+\subsection{\textcolor{red}{Optimierung dauert zu lange}}
+In dem Payload, der von dem externen Dienst an den Scheduler geschickt wird, steht auch eine maximale Dauer. Wenn diese erreicht ist, soll der Prozess abgebrochen werden und eine Fehlermeldung an den Absender gesendet werden.
+
+\subsection{\textcolor{red}{Scheduler wird ohne oder mit falscher Authentifizerung angesprochen}}
+Ein Auftrag wird von einem externen Dienst an den OptimScheduler geschickt. Dieser enthält keine Authentifizierung oder eine falsche Authentifizierung. In diesem Fall wird sofort eine Fehlermeldung an den Absender geschickt, dass eine Authentifizierung notwendig ist.
+
+\section{\textcolor{red}{Softwarearchitektur und Technologien}}
+\begin{itemize}
+    \item \textbf{REST-API}: Der Scheduler stellt für die Optimierungsabfragen eine REST-Schnittstelle zur Verfügung
+    \item \textbf{Eingabeformat}: Ein- und Ausgabe wird im Format JSON und CSV akzeptiert und verarbeitet
+    \item \textbf{Parallelisierung}: Der Scheduler soll mehrere Prozesse für die Optimierung parallel verarbeiten können
+    \item \textbf{Scheduling-Algorithmus}: Die Reihenfolge der Abarbeitung der wartenden Prozesse, wird durch einen Scheduling-Algorithmus bestimmt
+    \item \textbf{Ressourcenüberwachung}: Der Webservice muss den verfügbaren Arbeitsspeicher und die CPU-Auslastung vor dem Start eines neuen Prozesses prüfen
+    \item \textbf{Laufzeitkontrolle}: Der Scheduling-Algorithmus muss die Laufzeitgrenzen der Optimierungsprozesse beachten
+\end{itemize}
+
+\newpage
+\section{\textcolor{red}{Beschreibung der Algorithmen}}
+Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
+
+\subsection{\textcolor{red}{Non-Preemptive Priority Scheduling}}
+\textbf{Funktionsweise:} Jeder Auftrag bekommt eine statische Priorität zugewiesen. Die Aufträge mit der höheren Priorität werden gegenüber den mit geringerer Priortät bevorzugt verarbeitet. Ein laufender Prozess kann nicht unterbrochen werden auch wenn ein neuer Prozess mit höherer Priorität dazu kommt. Der neue Auftrag wird erst gestartet, nach dem ein vorheriger fertig geworden ist.
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Relativ einfach zu implementieren
+    \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
+    \item[-] Kann bei hoher Auslastung zu \textit{Starvation} von Aufträgen mit geringer Priorität führen
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
+    \item Scheduling-Typ: nicht präemptiv
+\end{itemize}
+
+\subsection{\textcolor{red}{Preemptive Priority Scheduling}}
+\textbf{Funktionsweise:} Auch hier bekommt jeder Auftrag eine statische Priorität hinzugefügt. Im Vergleich zum \textit{Non-Preemptive Priority Scheduling} kann hier eine höhere Priorität einen laufenden Prozess unterbrechen und ersetzen.
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
+    \item[+] Schnellere Reaktion bei wichtigen Aufträgens
+    \item[-] Komplexere Implementierung
+    \item[-] Abgebrochene Prozesse müssen gespeichert und später fortgesetzt werden
+    \item[-] Kann bei hoher Auslastung zu \textit{Starvation} von Aufträgen mit geringer Priorität führen
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
+    \item Scheduling-Typ: präemptiv
+\end{itemize}
+
+\subsection{\textcolor{red}{First in First Out (FIFO)}}
+\textbf{Funktionsweise:} Aufträge werden in der Reihenfolge bearbeitet, in der sie ankommen. Der erste eingegangene Auftrag wird auch als erstes bearbeitet. Ein neuer Auftrag wird nur dann gestartet, wenn der vorherige abgeschlossen wurde.
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Einfach zu implementieren
+    \item[-] Keine Priorisierung möglich
+    \item[-] Risiko: \textit{Convoy Effect} kann auftreten. Das heißt, dass ein langer Prozess alle anderen blockiert
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
+    \item Scheduling-Typ: nicht präemptiv
+\end{itemize}
+
+\subsection{\textcolor{red}{Deadline Monotonic Scheduling (DMS)}}
+\textbf{Funktionsweise:} DMS ist, wie das \textit{Non-Preemptive Priority Scheduling} ein statisches Prioritäts-Scheduling-Verfahren. Hier wird die Deadline also auch statisch bestimmt, aber nicht direkt gesetzt, sondern mit einer Deadline also einer maximalen Bearbeitungszeit verknüpft. Hier gilt also: Der Auftrag mit der kürzeren Zeit zwischen jetzt und der Deadline wird als nächstes genommen.
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
+    \item[+] Für Echtzeitsysteme mit bekannten Deadlines geeignet
+    \item[+] Garantiert die Einhaltung von Deadlines, sofern die Rechenleistung ausreichend ist
+    \item Jeder Auftrag muss ein Zeitlimit oder eine Deadline halten, um die Priorität zu bestimmen
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
+    \item Scheduling-Typ: nicht präemptiv
+\end{itemize}
+
+\subsection{\textcolor{red}{Least Slack Time First (LSF)}}
+\textbf{Funktionsweise:} LSF berechnet für jeden Auftrag die \textit{Slack Time} (Slack Time = Deadline - Restlaufzeit - aktuelle Zeit). Dabei hat immer der Auftrag mit der geringsten \textit{Slack Time} die höchste Priorität. Dieser Algorithmus berücksichtigt also zusätzlich die verbleibende Rechenzeit.
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
+    \item[+] Dynamische Berechnung der Priorität
+    \item[+] Berücksichtigt Bearbeitungsdauer und Deadline
+    \item[+] Minimiert die Anzahl verpasster Deadlines
+    \item[-] Erfordert genaue Schätzung der Restlaufzeit
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Ja
+    \item Scheduling-Typ: präemptiv
+\end{itemize}
+
+\subsection{\textcolor{red}{Highest Response Ratio Next}}
+\textbf{Funktionsweise:} Bei diesem Scheduling-Algorithmus werden die Aufträge nach der sogenannten \textit{Response Ration} sortiert. Die Response Ratio wird berechnet als: $\frac{\text{Wartezeit} + \text{Bearbeitungszeit}}{\text{Bearbeitungszeit}}$. 
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
+    \item[+] Berücksichtigt die Bearbeitungszeit und die Bearbeitungsdauer
+    \item[+] Reduziert \textit{Starvation}
+    \item[-] Erfordert möglichst genaue Schätzung der Bearbeitungsdauer
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Ja
+    \item Scheduling-Typ: nicht präemptiv
+\end{itemize}
+
+\subsection{\textcolor{red}{Shortest Job First (SJF)}}
+\textbf{Funktionsweise:} Hier wird immer der Auftrag als nächstes gewählt, der die geringste Bearbeitungszeit hat. Der Prozess läuft, wenn er gestartet wurde, bis zum ende durch. Ziel dieses Algorithmus ist es, die Wartezeit zu minimieren, indem die kürzesten Aufträge immer zuerst abgearbeitet werden.
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
+    \item[+] Minimiert die durchschnittliche Wartezeit
+    \item[-] Benötigt eine relativ genaue Schätzung der Bearbeitungszeiten
+    \item[-] Risiko von \textit{Starvation} bei Aufträgen mit hoher Bearbeitungszeit
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Ja
+    \item Scheduling-Typ: nicht präemptiv
+\end{itemize}
+
+\subsection{\textcolor{red}{Shortest Remaining Time First}}
+\textbf{Funktionsweise:} Dieser Algorithmus ist die präemtive Variante von SJF. Hier wird der Prozess mit der geringsten geschätzten Restlaufzeit bevorzugt. Wenn ein neuer Auftrag also ankommt und dessen Restlaufzeit geringer ist, als die des gerade laufenden Prozesse, dann wir der aktuell laufende Prozess unterbrochen und der neue Auftrag dafür abgearbeitet.
+
+\textbf{Eigenschaften:}
+\begin{itemize}
+    \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
+    \item[+] Minimiert die durchschnittliche Wartezeit
+    \item[-] Erfordert eine genaue Schätzung der Restlauftzeit
+    \item[-] Kann zu häufigen Kontextwechseln führen
+    \item[-] Risiko: \textit{Starvation} von größeren Prozessen möglich
+    \item Verbleibende Bearbeitungsdauer erforderlich?: Ja
+    \item Scheduling-Typ: präemptiv
+\end{itemize}
+
+% \subsection{\textcolor{red}{MultiLevelQueue}}
+% \textbf{Funktionsweise:} 
+
+% \textbf{Eigenschaften:}
+% \begin{itemize}
+%     \item
+% \end{itemize}
+
+% \subsection{\textcolor{red}{MultiLevelFeedbackQueue Scheduling (MFQS)}}
+% \textbf{Funktionsweise:} 
+
+% \textbf{Eigenschaften:}
+% \begin{itemize}
+%     \item
+% \end{itemize}
+
+\section{\textcolor{red}{Selektierung der Algorithmen}}
+\subsection{\textcolor{red}{Ausschlusskriterien}}
+Wenn ein Schedulingalgorithmus folgende Eigenschaften aufweist, dann wird dieser in dem späteren teil der Arbeit nicht mehr betrachtet, da Das bestehende System diese Anforderungen nicht her gibt:
+
+\begin{itemize}
+    \item \textbf{Präemptiv?:} Wenn der Algorithmus präemptiv ist, also laufende Prozesse unterbricht um Prozesse mit höherer Priorität vorzuziehen, dann ist dieser Algorithmus nicht geeignet, da der Fortschritt nicht gespeichert werden kann und der abgebrochene Prozess dann von vorne starten muss
+    \item \textbf{Muss die Bearbeitungszeit bekannt sein?:} Wenn die Bearbeitungszeit bekannt sein muss, um die Aufträge zu sortieren, dann kann dieser Algorithmus verworfen werden, da die Bearbeitungszeiten nicht bestimmt und auch nicht gut vorhergesagt werden können.
+    \item \textbf{Müssen feste Prioritäten vorgegeben sein?:} Wenn feste Prioritäten vorgegeben sein müssen, dann kann der Algorithmus ebenso verworfen werden, da wir keine festen Prioritäten vergeben wollen
+\end{itemize}
+
+\newpage
+\subsection{\textcolor{red}{Ausschluss ungeeigneter Algorithmen}}
+Tabelle~\ref{tab:algorithmenauswahl} bewertet alle vorgestellten Algorithmen anhand dieser drei Kriterien. Ein \textbf{Ja} in einer der Spalten führt zum Ausschluss des Algorithmus.
+
+\begin{table}[H]
+    \centering
+    {\setlength{\arrayrulewidth}{0.3pt}
+    \begin{tabular}{|p{0.24\textwidth}|p{0.15\textwidth}|p{0.20\textwidth}|p{0.14\textwidth}|p{0.18\textwidth}|}
+        \hline
+        \textbf{Algorithmus} & \textbf{Präemptiv?} & \textbf{Bearbeitungs-zeit nötig?} & \textbf{Feste Prioritäten?} & \textbf{Ergebnis} \\
+        \hline
+        Non-Preemptive Priority Scheduling & Nein & Nein & \textbf{Ja} & Ausgeschlossen \\
+        \hline
+        Preemptive Priority Scheduling & \textbf{Ja} & Nein & \textbf{Ja} & Ausgeschlossen \\
+        \hline
+        First In First Out (FIFO) & Nein & Nein & Nein & \textbf{Verbleibt} \\
+        \hline
+        Deadline Monotonic Scheduling (DMS) & Nein & Nein & Nein & \textbf{Verbleibt} \\
+        \hline
+        Least Slack Time First (LSF) & \textbf{Ja} & \textbf{Ja} & Nein & Ausgeschlossen \\
+        \hline
+        Highest Response Ratio Next (HRRN) & Nein & \textbf{Ja} & Nein & Ausgeschlossen \\
+        \hline
+        Shortest Job First (SJF) & Nein & \textbf{Ja} & Nein & Ausgeschlossen \\
+        \hline
+        Shortest Remaining Time First (SRTF) & \textbf{Ja} & \textbf{Ja} & Nein & Ausgeschlossen \\
+        \hline
+    \end{tabular}}
+    \caption{Bewertung der Scheduling-Algorithmen anhand der Ausschlusskriterien}
+    \label{tab:algorithmenauswahl}
+\end{table}
+
+\newpage
+\section{\textcolor{red}{Zusammenfassung}}
+Die Anforderungen an den OptimScheduler umfassen:
+
+\begin{itemize}
+    \item \textbf{Funktionale Anforderungen}: Der Scheduler muss Optimierungsaufträge parallel verarbeiten, eine Warteschlange verwalten, Ressourcen überwachen und Laufzeiten begrenzen können.
+    
+    \item \textbf{Technische Anforderungen}: Der Scheduler wird als Java-basierter REST-Webservice mit Spring Boot implementiert, mit JSON-Datenaustausch und Unterstützung für parallele Prozessausführung.
+    
+    \item \textbf{Scheduling-Strategien}: Verschiedene Algorithmen (FIFO, Priority-Based, LLR, Adaptive) wurden analysiert. FIFO und Priority-Based Scheduling werden als Implementierungsfokus empfohlen.
+    
+    \item \textbf{Architekturelle Flexibilität}: Die Implementierung soll modular aufgebaut werden, um verschiedene Strategien austauschbar zu ermöglichen und experimentelle Evaluierungen zu unterstützen.
+
+    \item \textbf{Auswahl der Algorithmen}: Die Algorithmen First In First Out und Deadline Monotonic Scheduling passen als einzige zu den definierten Ausschlusskriterien und werden somit als einzige weiter betrachtet und analysiert.
+\end{itemize}
+
+Diese Anforderungen bilden die Grundlage für die Konzeptionierung des OptimSchedulers im folgenden Kapitel.
+
+\chapter{\textcolor{red}{Konzeptionierung}}
+\section{\textcolor{red}{Datenstrukturen}}
+Die Aufträge für den Webservice werden mit definierten Datenstrukturen verwaltet. Die Ein- und Ausgabe-Datentypen sind wie folgt definiert.
+
+\subsection{\textcolor{red}{Eingabe-Datentypen}}
+\begin{itemize}
+    \item \textbf{Optimierer} (String): Auswahl des Optimierers (z.B. \texttt{ftlopt}, \texttt{coflo}, \texttt{MIXOR})
+    \item \textbf{Eingabedatei} (JSON/CSV-Objekt): Eingabedatei für den Optimierer im JSON/CSV-Format
+    \item \textbf{maxLaufzeit} (Integer, optional): Maximale Laufzeit in Sekunden
+    \item \textbf{Authentifizierung} (String): Authentifizierungstoken oder API-Key
+\end{itemize}
+
+\subsection{\textcolor{red}{Ausgabe-Datentypen}}
+\begin{itemize}
+    \item \textbf{AuftragsID} (UUID): Eindeutige identifikationsnummer des Auftrags
+    \item \textbf{Ergebnis} (JSON/CSV-Objekt): Die Ausgabedatei der Optimierung (bei erfolgreicher Verarbeitung)
+    \item \textbf{Zeitstempel} (Objekt): Zeitpunkte: Eingang, Optimierungsstart, Beendet (ISO 8601)
+    \item \textbf{Fehlermeldung} (String): Fehlerbeschreibung, wenn ein Fehler auftritt
+    \item \textbf{Ressourcenverbrauch} (Objekt): stellt den Verbrauch der Hardware Ressourcen dar
+\end{itemize}
+
+\section{\textcolor{red}{Aufbau des Webservice}}
+Dieser Abschnitt beschreibt den groben Ablauf und den grundlegenden Aufbau des OptimSchedulers als Webservice, einschließlich seiner Einbettung in die bereits vorhandene Infrastruktur.
+
+\subsection{\textcolor{red}{Überblick}}
+Der OptimScheduler ist ein selbstständiger Webservice, der als Docker-Container betrieben wird. Der Webservice kapselt die gesamte Logik für die Steuerung der Ausführung die Optimierungsprozesse. Dadurch entkoppelt er gleichzeitig diese vom Tserv. Es können Optimierungsprozesse direkt über eine REST-Schnittstelle und nicht nur über eine Dateischnittstelle vom Tserv aufgerufen werden.
+
+Eine wesentliche Designentscheidung des Webservice ist, dass jeder Optimierungslauf als eigener \textbf{Kubernetes-Pod} gestartet wird. Dadurch werden die einzelnen Optimierungsläufe vom Host-System isoliert; Ressourcen können somit pro Pod gezielter festgelegt werden und dadurch ist auch eine flexible Skalierung über die Kubernetes-Infrastruktur möglich.
+
+\subsection{\textcolor{red}{Ablauf}}
+Der typische Ablauf einer Optimierungsanfrage ist wie folgt:
+
+\begin{enumerate}
+    \item Ein externer Aufrufer (z.\,B. der Tserv) sendet einen \texttt{POST /optimize}-Request mit Optimiererauswahl, Eingabedaten und optionaler Laufzeitbegrenzung.
+    \item Der OptimScheduler authentifiziert die Anfrage und validiert die Eingabe.
+    \item Sind Ressourcen verfügbar und die maximale Parallelität noch nicht erreicht, startet der OptimScheduler über die Kubernetes-API einen neuen Pod. Andernfalls wird der Auftrag in die Job-Queue eingereiht und wartet, bis ein Slot frei wird.
+    \item Der gestartete Pod führt den Optimierer aus und schreibt das Ergebnis zurück.
+    \item Der OptimScheduler leitet das Ergebnis an den ursprünglichen Aufrufer weiter und gibt Laufzeitinformationen sowie Ressourcenverbrauch zurück.
+\end{enumerate}
+
+\subsection{\textcolor{red}{Systemarchitektur}}
+
+Abbildung~\ref{fig:architektur_webservice} veranschaulicht den beschriebenen Aufbau. Der OptimScheduler bildet die Brücke zwischen dem externen Aufrufer und dem Kubernetes-Cluster, in dem die Optimierer-Pods ausgeführt werden.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+    font=\small,
+    node distance=1.6cm and 2.2cm,
+    box/.style={draw, rounded corners=3pt, minimum width=2.8cm, minimum height=0.9cm, align=center, fill=gray!10},
+    pod/.style={draw, rounded corners=3pt, minimum width=2.2cm, minimum height=0.8cm, align=center, fill=blue!10},
+    cluster/.style={draw, dashed, rounded corners=5pt, inner sep=0.5cm, fill=blue!5},
+    arrow/.style={->, >=stealth, thick}
+]
+
+\node[box] (tserv) {Tserv /\\Externer Aufrufer};
+
+\node[box, right=2.4cm of tserv, minimum width=3.2cm, minimum height=2.8cm, fill=orange!10] (scheduler_outer) {};
+\node[above] at (scheduler_outer.north) {};
+\node[font=\small\bfseries, anchor=north] at (scheduler_outer.north) {\strut OptimScheduler};
+\node[box, fill=white, minimum width=2.6cm, minimum height=0.7cm] at ([yshift=0.45cm]scheduler_outer.center) (restapi) {REST-API};
+\node[box, fill=white, minimum width=2.6cm, minimum height=0.7cm] at ([yshift=-0.25cm]scheduler_outer.center) (queue) {Job-Queue};
+\node[box, fill=white, minimum width=2.6cm, minimum height=0.7cm] at ([yshift=-0.95cm]scheduler_outer.center) (worker) {Worker-Mgmt.};
+
+\node[cluster, right=2.4cm of scheduler_outer] (cluster_box) {
+};
+\node[pod, right=2.6cm of scheduler_outer, yshift=0.7cm] (pod1) {Pod: ftlopt};
+\node[pod, right=2.6cm of scheduler_outer]              (pod2) {Pod: coflo};
+\node[pod, right=2.6cm of scheduler_outer, yshift=-0.7cm] (pod3) {Pod: \ldots};
+\node[font=\small\bfseries, above=0.05cm of pod1] {Kubernetes-Cluster};
+
+\draw[<->] (tserv.east) -- node[above, font=\footnotesize]{REST} (restapi.west);
+\draw[<->] ([yshift=0.2cm]worker.east) -- (pod1.west);
+\draw[<->] (worker.east) -- (pod2.west);
+\draw[<->] ([yshift=-0.2cm]worker.east) -- (pod3.west);
+
+\end{tikzpicture}
+\caption{Systemarchitektur des OptimSchedulers: Der Webservice nimmt Anfragen per REST entgegen, verwaltet eine Job-Queue und startet Optimierer als Pods in einem Kubernetes-Cluster.}
+\label{fig:architektur_webservice}
+\end{figure}
+
+\subsection{\textcolor{red}{Technologie-Stack}}
+
+Der OptimScheduler wird als Java-Anwendung mit dem Framework Spring Boot implementiert und mit Maven gebaut. Tabelle~\ref{tab:techstack} gibt einen Überblick über die eingesetzten Technologien.
+
+\begin{table}[H]
+    \centering
+    {\setlength{\arrayrulewidth}{0.3pt}
+    \begin{tabular}{|p{0.35\textwidth} | p{0.55\textwidth}|}
+        \hline
+        \textbf{Komponente} & \textbf{Technologie} \\
+        \hline
+        Backend / Scheduler & Java, Spring Boot \\
+        \hline
+        Build-Tool & Maven \\
+        \hline
+        Containerisierung & Docker \\
+        \hline
+        Prozessorchestrierung & Kubernetes \\
+        \hline
+        Schnittstelle & REST / HTTPS / JSON \\
+        \hline
+        Betriebssystem & Linux \\
+        \hline
+    \end{tabular}}
+    \caption{Technologie-Stack des OptimSchedulers}
+    \label{tab:techstack}
+\end{table}
+
+\newpage
+\section{\textcolor{red}{Beschreibung der ausgewählten Algorithmen}}
+Nun werden die zwei Algorithmen, die nach der Vorselektion verbleiben - FIFO und Deadline Monotonic Scheduling - detailliert beschrieben und mit ein paar Beispielen veranschaulicht.
+
+\subsection{\textcolor{red}{First In First Out (FIFO)}}
+
+\subsubsection{\textcolor{red}{Funktionsweise}}
+FIFO ist ein relativ einfaches Scheduling-Verfahren: Die eingehenden Optimierungsaufträge werden in einer Warteschlange gesammelt und nach und nach in der Reihenfolge abgearbeitet, in der sie angekommen sind. Ein laufender Prozess wird dabei nicht unterbrochen (nicht präemptiv). 
+
+Der größte Vorteil von FIFO liegt in der Vorhersehbarkeit. Jeder Auftrag wird  irgendwann ausgeführt. Dadurch wird \textit{Starvation}, also das Übergehen eines Auftrags, vermieden. Zudem hängt die Wartezeit eines Prozesses ausschließlich von den zuvor eingegangenen Prozessen ab.
+
+Ein bekanntes Problem des FIFO Algorithmus ist der sogenannte \textit{Convoy Effect}. Das bedeutet, dass ein langwieriger Prozess die Warteschlange blockiert, wobei die Dringlichkeit nicht berücksichtigt wird. In einem Szenario, in dem zeitkritische Aufträge bearbeitet werden sollen, kann das zu unerwünschten Verzögerungen führen.
+
+\subsubsection{\textcolor{red}{Schematische Darstellung}}
+Abbildung~\ref{fig:fifo_queue} zeigt den grundlegenden Aufbau einer FIFO-Warteschlange. Neue Aufträge werden am hinteren Ende eingereiht und am vorderen Ende entnommen.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small]
+  \node[anchor=east, font=\small\bfseries] at (-0.15, 1.45) {Eingang:};
+  \draw (0.0, 1.0) rectangle (2.0, 1.9); \node at (1.0, 1.45) {Job A};
+  \draw (2.3, 1.0) rectangle (4.3, 1.9); \node at (3.3, 1.45) {Job B};
+  \draw (4.6, 1.0) rectangle (6.6, 1.9); \node at (5.6, 1.45) {Job C};
+  \draw[->, thick] (2.0, 1.45) -- (2.3, 1.45);
+  \draw[->, thick] (4.3, 1.45) -- (4.6, 1.45);
+
+  \node[anchor=east, font=\small\bfseries] at (-0.15, -0.15) {Ausführung:};
+  \draw (0.0, -0.6) rectangle (2.0, 0.3); \node at (1.0, -0.15) {Job A};
+  \draw (2.3, -0.6) rectangle (4.3, 0.3); \node at (3.3, -0.15) {Job B};
+  \draw (4.6, -0.6) rectangle (6.6, 0.3); \node at (5.6, -0.15) {Job C};
+  \draw[->, thick] (2.0, -0.15) -- (2.3, -0.15);
+  \draw[->, thick] (4.3, -0.15) -- (4.6, -0.15);
+\end{tikzpicture}
+\caption{Eingangs- und Ausführungsreihenfolge bei FIFO -- Reihenfolge bleibt unverändert}
+\label{fig:fifo_queue}
+\end{figure}
+
+\subsubsection{\textcolor{red}{Beispiel}}
+Das folgende Beispiel zeigt, wie eine FIFO Warteschlange in einem System funktionieren kann. Wichtig zu beachten ist, dass in dem System die Dauer nicht bekannt ist. Zudem zeigt das Beispiel, wie ein \textit{Convoy Effect} auftreten kann.
+
+\begin{table}[H]
+\centering
+{\setlength{\arrayrulewidth}{0.3pt}
+\begin{tabular}{|l|r|r|r|}
+    \hline
+    \textbf{Auftrag} & \textbf{Dauer (min)} & \textbf{Deadline (min)} & \textbf{Eingangsreihenfolge} \\
+    \hline
+    Job A & 5 & 12 & 1 \\
+    \hline
+    Job B & 2 & 4  & 2 \\
+    \hline
+    Job C & 3 & 8  & 3 \\
+    \hline
+\end{tabular}}
+\caption{Auftragsparameter für das Beispiel}
+\label{tab:algo_beispiel}
+\end{table}
+
+In der Tabelle lässt sich erkennen, dass erst Job A, dann Job B und dann Job C ankommt. Da Job A Job B blockiert, obwohl Job B zeitkritischer ist verpasst Job B seine Deadline. Ebenso blockieren Job A und B Job C, sodass Job C die Deadline verpasst.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small]
+  \draw[->] (-0.2, 0.0) -- (11.4, 0.0) node[right] {$t$ (min)};
+  \foreach \x in {0,1,...,10} {
+    \draw (\x, -0.08) -- (\x, 0.05);
+    \node[below, font=\scriptsize] at (\x, -0.12) {\x};
+  }
+  \fill[blue!20]   (0, 0.25) rectangle (5, 0.95);
+  \draw            (0, 0.25) rectangle (5, 0.95) node[midway] {Job A};
+  \fill[green!20]  (5, 0.25) rectangle (7, 0.95);
+  \draw            (5, 0.25) rectangle (7, 0.95) node[midway] {Job B};
+  \fill[orange!20] (7, 0.25) rectangle (10, 0.95);
+  \draw            (7, 0.25) rectangle (10, 0.95) node[midway] {Job C};
+  \draw[red, dashed, thick] (4, 0.15) -- (4, 1.35);
+  \node[red, above, font=\scriptsize] at (4, 1.35) {$d_B\!=\!4$};
+  \draw[red, dashed, thick] (8, 0.15) -- (8, 1.35);
+  \node[red, above, font=\scriptsize] at (8, 1.35) {$d_C\!=\!8$};
+\end{tikzpicture}
+\caption{Gantt-Diagramm FIFO: Deadlines von Job B und Job C werden verpasst}
+\label{fig:fifo_gantt}
+\end{figure}
+
+\subsection{\textcolor{red}{Deadline Monotonic Scheduling (DMS)}}
+\subsubsection{\textcolor{red}{Funktionsweise}}
+Beim Deadline Monotonic Scheduling ist die Ausführungsreihenfolge über die Deadlines der Aufträge bestimmt. Dabei hat der Auftrag mit der nächstliegenden Deadline die höchste Priorität.
+ Diese Priorität wird ausschließlich aus der Deadline bestimmt und ist damit implizit. Es muss also keine Priorität von außen mitgegeben werden.
+
+In Verbindung mit dem OptimScheduler lässt sich die \texttt{maxLaufzeit} aus dem Anfrage-Payload als Deadline ableiten. Die Deadline ergibt sich dann aus dem Eingangszeitpunkt und der maximalen Laufzeit ($\text{Deadline} = t_\text{Eingang} + \texttt{maxLaufzeit}$). Wenn keine \texttt{maxLaufzeit} definiert ist, dann erhält der Auftrag die Deadline unendlich und hat damit automatisch die niedrigste Priorität.
+
+Da DMS ein nicht präemptiver Algorithmus ist, wird kein bereits laufender Prozess unterbrochen. Neue Aufträge werden in die Warteschlange beim Eingang einsortiert. Zeitkritische Aufträge sollen durch die Priorisierung nach Deadlines zeitnah abgearbeitet werden. 
+
+\subsubsection{\textcolor{red}{Schematische Darstellung}}
+Die Abbildung~\ref{fig:dms_queue} zeigt, wie die Aufträge aus dem Beispiel in die DMS Warteschlange angeordnet werden. Die Sortierung erfolgt aufsteigend nach der Deadline.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small]
+  \node[anchor=east, font=\small\bfseries] at (-0.15, 1.55) {Eingang:};
+  \draw (0.0, 1.0) rectangle (2.2, 2.1); \node at (1.1, 1.75) {Job A}; \node[font=\scriptsize, gray] at (1.1, 1.32) {$d = 12$};
+  \draw (2.5, 1.0) rectangle (4.7, 2.1); \node at (3.6, 1.75) {Job B}; \node[font=\scriptsize, gray] at (3.6, 1.32) {$d = 4$};
+  \draw (5.0, 1.0) rectangle (7.2, 2.1); \node at (6.1, 1.75) {Job C}; \node[font=\scriptsize, gray] at (6.1, 1.32) {$d = 8$};
+  \draw[->, thick] (2.2, 1.55) -- (2.5, 1.55);
+  \draw[->, thick] (4.7, 1.55) -- (5.0, 1.55);
+
+  \node[anchor=east, font=\small\bfseries] at (-0.15, -0.05) {Ausführung:};
+  \draw (0.0, -0.6) rectangle (2.2, 0.5); \node at (1.1, 0.15) {Job B}; \node[font=\scriptsize, gray] at (1.1, -0.22) {$d = 4$};
+  \draw (2.5, -0.6) rectangle (4.7, 0.5); \node at (3.6, 0.15) {Job C}; \node[font=\scriptsize, gray] at (3.6, -0.22) {$d = 8$};
+  \draw (5.0, -0.6) rectangle (7.2, 0.5); \node at (6.1, 0.15) {Job A}; \node[font=\scriptsize, gray] at (6.1, -0.22) {$d = 12$};
+  \draw[->, thick] (2.2, -0.05) -- (2.5, -0.05);
+  \draw[->, thick] (4.7, -0.05) -- (5.0, -0.05);
+\end{tikzpicture}
+\caption{Eingangs- und Ausführungsreihenfolge bei DMS -- Umsortierung nach Deadline}
+\label{fig:dms_queue}
+\end{figure}
+
+\subsubsection{\textcolor{red}{Beispiel}}
+
+\begin{table}[H]
+\centering
+{\setlength{\arrayrulewidth}{0.3pt}
+\begin{tabular}{|l|r|r|r|}
+    \hline
+    \textbf{Auftrag} & \textbf{Dauer (min)} & \textbf{Deadline (min)} & \textbf{Ausführungsreihenfolge (DMS)} \\
+    \hline
+    Job B & 2 & 4  & 1 \\
+    \hline
+    Job C & 3 & 8  & 2 \\
+    \hline
+    Job A & 5 & 12 & 3 \\
+    \hline
+\end{tabular}}
+\caption{Ausführungsreihenfolge bei DMS -- sortiert nach Deadline}
+\label{tab:dms_beispiel}
+\end{table}
+
+Für dieselben drei Aufträge aus Tabelle~\ref{tab:algo_beispiel}, sowie Tabelle~\ref{tab:dms_beispiel}, ergibt sich bei DMS die Ausführungsreihenfolge: Job B (engste Deadline $d = 4$), dann Job C ($d = 8$), zuletzt Job A ($d = 12$). Abbildung~\ref{fig:dms_gantt} stellt diese Reihenfolge dar. Alle drei Deadlines werden eingehalten.
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[font=\small]
+  \draw[->] (-0.2, 0.0) -- (12.4, 0.0) node[right] {$t$ (min)};
+  \foreach \x in {0,1,...,12} {
+    \draw (\x, -0.08) -- (\x, 0.05);
+    \node[below, font=\scriptsize] at (\x, -0.12) {\x};
+  }
+  \fill[green!20]  (0, 0.25) rectangle (2, 0.95);
+  \draw            (0, 0.25) rectangle (2, 0.95) node[midway] {Job B};
+  \fill[orange!20] (2, 0.25) rectangle (5, 0.95);
+  \draw            (2, 0.25) rectangle (5, 0.95) node[midway] {Job C};
+  \fill[blue!20]   (5, 0.25) rectangle (10, 0.95);
+  \draw            (5, 0.25) rectangle (10, 0.95) node[midway] {Job A};
+  \draw[green!50!black, dashed, thick] (4, 0.15) -- (4, 1.35);
+  \node[green!50!black, above, font=\scriptsize] at (4, 1.35) {$d_B\!=\!4$};
+  \draw[green!50!black, dashed, thick] (8, 0.15) -- (8, 1.35);
+  \node[green!50!black, above, font=\scriptsize] at (8, 1.35) {$d_C\!=\!8$};
+  \draw[green!50!black, dashed, thick] (12, 0.15) -- (12, 1.35);
+  \node[green!50!black, above, font=\scriptsize] at (12, 1.35) {$d_C\!=\!12$};
+\end{tikzpicture}
+\caption{Gantt-Diagramm DMS: Alle Deadlines werden eingehalten}
+\label{fig:dms_gantt}
+\end{figure}
+
+In diesem Beispiel werden jetzt die Deadlines der einzelnen Jobs eingehalten. Dies ist allerdings nur sinnvoll, wenn es auch nicht durch Überlastung des Systems zu \textit{Starvation} kommt.
+
+\subsection{\textcolor{red}{Vergleich der Algorithmen}}
+
+Tabelle~\ref{tab:algo_vergleich} stellt die wesentlichen Eigenschaften beider Algorithmen gegenüber.
+
+\begin{table}[H]
+\centering
+{\setlength{\arrayrulewidth}{0.3pt}
+\begin{tabular}{|p{0.36\textwidth}|p{0.22\textwidth}|p{0.28\textwidth}|}
+    \hline
+    \textbf{Kriterium} & \textbf{FIFO} & \textbf{DMS} \\
+    \hline
+    Implementierungskomplexität & Gering & Mittel \\
+    \hline
+    Priorisierung & Keine & Implizit über Deadline \\
+    \hline
+    Starvation-Risiko & Nicht vorhanden & Sehr gering \\
+    \hline
+    Benötigte Zusatzinformation & Keine & \texttt{maxLaufzeit} \\
+    \hline
+    Eignung für zeitkritische Aufträge & Gering & Hoch \\
+    \hline
+    Convoy-Effect-Risiko & Vorhanden & Reduziert \\
+    \hline
+\end{tabular}}
+\caption{Eigenschaftsvergleich von FIFO und DMS}
+\label{tab:algo_vergleich}
+\end{table}
+ 
+\section{\textcolor{red}{Analyse der Algortihmen}}
+\subsection{\textcolor{red}{Implementierung der Prototypen}}
+Beide Algorithmen, also DMS und FIFO, werden als Prototyp im Webservice austauschbar implementiert. Der Algorithmus kann dann über eine Konfigurationseinstellung gewechselt werden, damit diese miteinander verglichen werden können. 
+
+\subsection{\textcolor{red}{Messgrößen}}
+Für die Analyse der Algorithmen werden folgende Kennzahlen ausgewertet:
+\begin{itemize}
+    \item \textbf{Durchschnittliche Wartezeit}: Mittlere Zeitspanne zwischen Eingang eines Auftrags und dem Start seiner Ausführung
+    \item \textbf{Durchschnittliche Durchlaufzeit}: Mittlere Zeitspanne zwischen Eingang und Abschluss eines Auftrags
+    \item \textbf{Deadline-Einhaltungsrate}: Anteil der Aufträge, deren Deadline eingehalten wurde
+    \item \textbf{Maximale Wartezeit}: Längste aufgetretene Wartezeit über alle Aufträge eines Szenarios
+    \item \textbf{Systemdurchsatz}: Anzahl der abgeschlossenen Aufträge pro Zeiteinheit
+\end{itemize}
+
+\subsection{\textcolor{red}{Versuchsaufbau}}
+
+Die Messungen werden anhand von vier Szenarien durchgeführt, die typische Betriebssituationen des OptimSchedulers abbilden:
+
+\begin{itemize}
+    \item \textbf{Szenario 1 -- Gleichmäßige Last}: Gleichmäßig eingehende Aufträge mit ähnlichen Laufzeiten und ohne explizite Deadlines; dient als Baseline-Vergleich
+    \item \textbf{Szenario 2 -- Gemischte Dringlichkeit}: Aufträge mit unterschiedlichen Deadlines, die eine typische Mischung aus RT-, OEV- und PP-Optimierungen simulieren
+    \item \textbf{Szenario 3 -- Spitzenlast}: Viele gleichzeitig eingehende Aufträge, um das Verhalten unter hoher Auslastung zu erfassen
+    \item \textbf{Szenario 4 -- Zeitkritische Aufträge}: Aufträge mit engen Deadlines, gemischt mit langlaufenden Aufträgen ohne Deadline
+\end{itemize}
+
+Die Ergebnisse der Messungen sowie deren Auswertung und Interpretation folgen im nächsten Kapitel.
+
+\chapter{\textcolor{red}{Evaluation}}
+\chapter{\textcolor{red}{Fazit \& Ausblick}}
+
+\newpage
+\section*{Eidesstattliche Erklärung}
+Ich versichere hiermit an Eides statt, dass ich die vorliegende Arbeit selbstständig und ohne Benutzung anderer als der angegebenen Hilfsmittel angefertigt habe. Alle Stellen, die wörtlich oder sinngemäß aus Veröffentlichungen entnommen wurden, sind als solche kenntlich gemacht.\\ Im Rahmen der Erstellung dieser Arbeit wurde das KI-System 'KI.connect.nrw' unterstützend zur sprachlichen Überarbeitung sowie zur fachlichen Reflexion und Präzisierung eigenständig entwickelter Argumente genutzt. Eine Übernahme von KI-generierten Texten oder inhaltlichen Lösungsvorschlägen erfolgte nicht. Sämtliche fachlichen Aussagen, Bewertungen und Schlussfolgerungen wurden eigenständig erarbeitet und verantwortet. Die Nutzung erfolgte im Einklang mit der Zweckbestimmung des Systems sowie unter Beachtung datenschutz- und urheberrechtlicher Vorgaben.
+\vfill
+\noindent
+\begin{tabular}{p{0.45\textwidth} p{0.45\textwidth}}
+Ort, Datum: \hrulefill & Unterschrift: \hrulefill \\
+\end{tabular}
+
+\clearpage
+
+\end{document}
