@@ -167,9 +167,15 @@ Scheduling-Verfahren:
  -Quellen bei den Algorithmen einfügen
  -Quelle für Convoy Effect, Starvation hinzufügen
  -Timm fragen welche Kriterien es für die Algorithmen gibt
- -Thomas fragen, ob es für den OptimScheduler eine bevorzugte Authentifizierung gibt
+ -Thomas fragen, ob es für den OptimScheduler eine bevorzugte Authentifizierung gibt => In Webservice implementieren => OAUTH client credentials flow
+ -Schreiben, dass nur Mocks benutzt werden um die Schnittstelle ordentlich und ohne Randeffekte testen zu können
+ -Algorithmen im Code genau verstehen und ggf. verbessern
  
  
+ -Cap Theorem zum messen (Gute Vorraussetzung zur Auswertung der Daten mit Quellen)
+ -Man kann argumentieren, dass nur das Scheduling verfahren testen will (Qualität irrelevant)
+ -Laborbedingungen sind relevant
+ => Muss gut erklärt sein warum das reicht (Passende Literatur zum zitieren raussuchen)
  
  
  
