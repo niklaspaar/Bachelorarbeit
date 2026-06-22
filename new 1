@@ -1,0 +1,74 @@
+
+ TODO:
+ 
+ Bachelorarbeit:
+ Gedanken über funktionale Anforderungen und nicht funktionale Anforderungen machen (Benedikt, Thomas A, Timm)
+ 
+ 18.02. - 31.03. Vorbereitung auf die Bachelorarbeit und die IHK-Abschlussprüfung
+ 31.03. erste Version des OptimSchedulers und test der einzelnen Bausteine bzw. Technologien ist abgeschlossen
+ 01.04. - 28.04. Vorbereitung auf die IHK-Abschlussprüfung
+ 29.04. - 08.05. Schriftliche und praktische Abschlussprüfung
+ 12.05. - 22.05. Vorbereitung auf die Bachelorarbeit
+ 22.05. Funktional Vollständiger OptimScheduler ist implementiert
+ 25.05. - 26.07. Schreiben der Bachelorarbeit
+ 
+ 
+ 
+ https://fh-aachen.webex.com/meet/a.voss
+ 
+ git clone https://benedikt.bauer_inform-evotess.com:glpat-lTpaaRVXCST4xmWzRMbeWWM6MQpvOjEKdTprdWZ4Zg8.01.171iwh5ko@gitlab.com/evotess/syncrotess/frontend/dispatch20.git
+ 
+ https://gb20-services-sdv.k8s-prod.inform-software.com/
+ 
+ 
+ 
+ 
+ PUT:
+ python presigned_url_helper.py put --url "https://evotess-prod-temporary-file-exchange.s3.amazonaws.com/test423?AWSAccessKeyId=ASIA3C4HBH5T3TZRYOTZ&Signature=a43vuE%2FZnJmyHKVK6IaVZYcuYTE%3D&x-amz-security-token=IQoJb3JpZ2luX2VjEJX%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaDGV1LWNlbnRyYWwtMSJHMEUCIHaxwD7HlLbWusj6hDL%2B6qdjv%2FkS7sFyOInfLShu7AePAiEAhhwMrtkSNSmsgque9%2BSTcUpLDz0SV1nQPeiqWORu0zIq%2BgMIXhAAGgw3NjIxMDMwMjE0MTUiDCUZ7d7Qo4jlgy70DirXA9xgyoJ9CdabNGLrlRe7JCPykdyGx%2Fvdat4xZC%2BTXXvfj3Y6xorSQDp7i8NvZfa0MBe7L3rwBccXIYmnop0fGuslsUyRZjf7XIBow%2FqlsCFzL%2B%2Fy6%2F7IPRkJf6MOYPunk3mpheq61GXMetcomoJinGctMZLgu9tRYnuCJx3kof1HF6aWfE70LypGvSqUh6Dx1ngK0ZseKDAVFahZXB3peIM%2F0M6l%2BvqxFaeLtH4h7IOVP06UaB2UHfU3GIOLBD2KZ5GmteT%2BX7KIkO4ccPu69KLx%2BOUg56L3wCFvu91RKTTAtHzUsbx1fW6SrTcZFdHX5hlrv8bIxP6p0sepbTco9LsPi1al8dsRqik4Q0L4gnCM36G9SpCJndFSiztiqMIH%2BdevNaM%2FNQhzBiOR1pcDefPEcI1jLOFQHEpslGfL3l%2BTYIgUe0VJx18k%2FXx9QYcUrfb7vJ2CCS6u7y6Wcka1DH%2BLf3gJ7uLWqZPHS3w1OoP273KGwcp3XzW3XXiV0mu3b6hILD49Lu9zP6OS%2B3tNwCRg6tmKCUrU72tiBh4ihyYL7aA7It7dMoD5zNxT36yjvvfBDA8ZYG1ie7PWbPruc5WGy2cSeU5eSBu8SNcZnQzW4dG0CTB0cDCe4b%2FRBjqoAZAxpEaeTlnZHK8YoQ6Ac9tuMx63dsHoELbqmq5hCbrAAJaAYgo2AeeDFInghh3JaIWf8U9BfcMadTZ67qw9R6JoiY2jq%2FQEFlM3QRxxwZ2bwN9IOlTAjNVaId84%2B0eQR9QbUR42U5lzW5ADZSdUPq1EUhwJ3Ef2CvoFf7MShK5NYZZgEOAvNQT0ueXI4QQm4nfEKONocU8eNNaQeIctgQzcb7xb7fPIjA%3D%3D&Expires=1781541101" --file "test.txt"
+ 
+ POST:
+ python presigned_url_helper.py post --text ./testpost.txt --file "./test.txt"
+ 
+ GET:
+ python presigned_url_helper.py get --url "https://evotess-prod-temporary-file-exchange.s3.amazonaws.com/test423?AWSAccessKeyId=ASIA3C4HBH5TY2PHBHQR&Signature=4T41SNl0UuhrV017Syp2Q06r17E%3D&x-amz-security-token=IQoJb3JpZ2luX2VjEKX%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FwEaDGV1LWNlbnRyYWwtMSJGMEQCIF6lxpAI3gKVll76%2FwyT8cn9ekiLHPCKZW6TbVeM2THIAiBNkvsezknX6E1mueJsudY46q6g4iQcLLyoGYNA3i4Ucyr6AwhuEAAaDDc2MjEwMzAyMTQxNSIM4E%2BTYuzzTPKV683TKtcDyV%2BeaxFaFUcGxwqAsREs3EcCPmF1n78bZcBGbZWsY%2F5%2Beq2mRhkS6hPoXP5xBQ9PrjS9Oo0m2TSmkUHS8CNfOaq369HJVxiuIY8HyxUOmbfdPMqKB%2FQrDjC%2F7CMmDslHS%2BOMiArCz2FUxrzUHtK8nh6isdL31vqt9uYw1lnLc6VjmxT%2F5u8Af9B4C2uLWr2Teux0sxGRKIyUgSna6N760Tk%2Fz9Ckuov3ob6xtgjoS2hyzIA%2FP927Q%2F3q3RL%2FrjIOHahToPNjZx5B%2BktmEBo48qzW5Qone5EtuT%2BynDCfB5CBlTXOEbVvyTjOzKH%2FA5pj60AHb9J0sKICdkO136KpsFfb%2Bjcs8QYKuTcWbV3a%2FXngY6ORrc%2BhbEZ9AgfyoEpiBlsoymB3Fej%2B9qsvuOFe%2B1R4ft4VnjpNa3jqSRAcGNIHr%2BJv7rUTcerXAAzAVWSD%2BmMT3c1mOFs%2FuPJ568P3tDZsPAI3iVcOWOTd9Vx1GDVegxgaXtQAGWmKe9oCPI8XQII66lCu8xSAyzU5JDwIEcBA56vxzwApdtxdmSH%2BoQhKa3mn8De%2FQRLVe1c9U7PHYhJu96vz3SJyci%2BUbNaZpDMt%2BFoI94%2FdyRY51aGkFQKrOHAyZ56hMMG6w9EGOqkBw9iG79ND%2BI1nwX8fQuAaTFhQPK6zEptZkP2V2TpmBcjR3oJQ3L%2FEs%2FkurgLIREjGWCZlytWie03i4Vz52AsS2uTWl1ZiIuNE%2F7BCZ52OdnALKt2FZCRA7ImY7l6ONxrMn99YZD7Y%2FDg2pLMYOxVd%2FoXiIkAKukIVQ0u2p84E13%2FjrAgeULTprMxUHXn0NqVrGZas4JbAzzbz5%2BAC5kImW1%2FL32ZMy6hjPw%3D%3D&Expires=1781606348" --output "./test423_output.txt"
+ 
+ 
+ java -jar SendMail-DEV-rlocal.jar  --sendmail.mailhandler=SMTP --sendmail.smtp.host=niklas.paar@inform-software.com --sendmail.smtp.port=25 --sendmail.sender=niklas.paar@inform-software.com --sendmail.maildir=/var/email --sendmail.sleeptime=30000
+ 
+ Termin machen für die Berater um Lift zu installieren (Fee, Laura, Tobias, Christian, Mel)
+ 
+ Auswertungen laufen lassen und die durchschnitt bilden und auswerten
+ Alles rebasen
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
