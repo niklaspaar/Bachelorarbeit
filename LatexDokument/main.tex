@@ -774,18 +774,216 @@ Für die Analyse der Algorithmen werden folgende Kennzahlen ausgewertet:
 
 \subsection{\textcolor{red}{Versuchsaufbau}}
 
-Die Messungen werden anhand von vier Szenarien durchgeführt, die typische Betriebssituationen des OptimSchedulers abbilden:
+Für die Evaluation wird ein prototypischer Webservice implementiert, der das Scheduling-Verhalten beider Algorithmen unter kontrollierten Bedingungen messbar macht. Da der Fokus auf dem Scheduling-Verhalten und nicht auf der eigentlichen Optimierungslogik liegt, wird die Ausführung der Optimierer (\textit{ftlopt}, \textit{coflo}, \textit{MIXOR}) durch ein \textbf{Mock-Modell} ersetzt: Jeder Auftrag simuliert seine Laufzeit ausschließlich durch einen \texttt{Thread.sleep()}-Aufruf für die im Auftrag definierte Dauer. Eine echte Optimierungsberechnung findet dabei nicht statt.
 
+Dieser Ansatz stellt sicher, dass die Laufzeiten der Aufträge vollständig kontrollierbar und reproduzierbar sind. Die Scheduling-Logik selbst -- Warteschlange, Parallelitätslimit, Deadline-Prüfung und Wartezeitmessung -- ist vollständig real implementiert und wird durch das Mock-Modell nicht verändert. Damit ist eine faire und isolierte Bewertung beider Algorithmen möglich.
+
+Jeder Job wird durch folgende Parameter beschrieben:
 \begin{itemize}
-    \item \textbf{Szenario 1 -- Gleichmäßige Last}: Gleichmäßig eingehende Aufträge mit ähnlichen Laufzeiten und ohne explizite Deadlines; dient als Baseline-Vergleich
-    \item \textbf{Szenario 2 -- Gemischte Dringlichkeit}: Aufträge mit unterschiedlichen Deadlines, die eine typische Mischung aus RT-, OEV- und PP-Optimierungen simulieren
-    \item \textbf{Szenario 3 -- Spitzenlast}: Viele gleichzeitig eingehende Aufträge, um das Verhalten unter hoher Auslastung zu erfassen
-    \item \textbf{Szenario 4 -- Zeitkritische Aufträge}: Aufträge mit engen Deadlines, gemischt mit langlaufenden Aufträgen ohne Deadline
+    \item \textbf{arrivalOffsetMs}: Zeitversatz in Millisekunden gegenüber dem Evaluierungsstart, zu dem der Auftrag eingeht
+    \item \textbf{simulatedDurationSeconds}: Simulierte Laufzeit des Auftrags; entspricht der Dauer des \texttt{Thread.sleep}
+    \item \textbf{maxRuntimeSeconds}: Maximale Laufzeit (Deadline) des Auftrags; eine Überschreitung wird als Deadline-Verfehlung gewertet
+    \item \textbf{maxParallelJobs}: Maximale Anzahl gleichzeitig ausführbarer Jobs innerhalb des Szenarios
 \end{itemize}
 
-Die Ergebnisse der Messungen sowie deren Auswertung und Interpretation folgen im nächsten Kapitel.
+Die Messungen werden anhand von \textbf{14 definierten Testszenarien} durchgeführt, die in zwei Gruppen unterteilt sind. Jedes Szenario enthält 100 Jobs.
+
+\paragraph{Gruppe 1 -- Deterministische Szenarien (S01--S09)}
+Diese neun Szenarien sind vollständig deterministisch und isolieren jeweils einen einzelnen Parameter, während alle übrigen konstant gehalten werden. Jobs kommen gleichmäßig in festen Abständen an. S01 dient dabei als Baseline-Szenario, das ein ausgeglichenes, voll ausgelastetes System darstellt.
+
+\begin{table}[H]
+\centering
+{\setlength{\arrayrulewidth}{0.3pt}
+\begin{tabular}{|p{0.05\textwidth}|p{0.21\textwidth}|p{0.06\textwidth}|p{0.10\textwidth}|p{0.08\textwidth}|p{0.09\textwidth}|p{0.23\textwidth}|}
+    \hline
+    \textbf{ID} & \textbf{Name} & \textbf{Slots} & \textbf{Ankunft} & \textbf{Dauer} & \textbf{Deadline} & \textbf{Isolierter Parameter} \\
+    \hline
+    S01 & Ausgeglichen         & 4 & 500\,ms  & 2\,s & 5\,s  & Baseline \\
+    \hline
+    S02 & Viele parallele Jobs & 6 & 500\,ms  & 2\,s & 5\,s  & Parallelitätslimit $\uparrow$ \\
+    \hline
+    S03 & Wenige parallele Jobs & 2 & 500\,ms  & 2\,s & 5\,s  & Parallelitätslimit $\downarrow$ \\
+    \hline
+    S04 & Viele Jobs/Sek.      & 4 & 200\,ms  & 2\,s & 5\,s  & Ankunftsrate $\uparrow$ \\
+    \hline
+    S05 & Wenige Jobs/Sek.     & 4 & 1000\,ms & 2\,s & 5\,s  & Ankunftsrate $\downarrow$ \\
+    \hline
+    S06 & Hohe Laufzeit        & 4 & 500\,ms  & 4\,s & 5\,s  & Laufzeit $\uparrow$ (Toleranz = 1\,s) \\
+    \hline
+    S07 & Geringe Laufzeit     & 4 & 500\,ms  & 1\,s & 5\,s  & Laufzeit $\downarrow$ \\
+    \hline
+    S08 & Geringe Deadline     & 4 & 500\,ms  & 2\,s & 2\,s  & Deadline $\downarrow$ (Toleranz = 0\,s) \\
+    \hline
+    S09 & Hohe Deadline        & 4 & 500\,ms  & 2\,s & 10\,s & Deadline $\uparrow$ (Toleranz = 8\,s) \\
+    \hline
+\end{tabular}}
+\caption{Gruppe 1: Deterministische Szenarien S01--S09 (je 100 Jobs)}
+\label{tab:szenarien_s01_s09}
+\end{table}
+
+\paragraph{Gruppe 2 -- Generierte Szenarien (S10--S14)}
+Diese fünf Szenarien enthalten kontrollierte Zufallsvariation, um realistischere Betriebssituationen mit schwankenden Parametern zu simulieren. Sie werden von einem parametrisierbaren Generator erzeugt; durch Variation des Zufalls-Seeds entstehen verschiedene Instanzen desselben Szenario-Typs, sodass die Stabilität der Ergebnisse über mehrere Läufe geprüft werden kann.
+
+\begin{table}[H]
+\centering
+{\setlength{\arrayrulewidth}{0.3pt}
+\begin{tabular}{|p{0.05\textwidth}|p{0.25\textwidth}|p{0.60\textwidth}|}
+    \hline
+    \textbf{ID} & \textbf{Name} & \textbf{Beschreibung} \\
+    \hline
+    S10 & Spitzenlast-Ankunft & 25 Jobs langsam ($\approx$1000\,ms), 50 Jobs im Burst ($\approx$200\,ms), anschließend wieder 25 Jobs langsam; Laufzeit (2\,s) und Deadline (5\,s) fest. \\
+    \hline
+    S11 & Duration-Spitzen & Gleichmäßige Ankunft ($\approx$500\,ms); 85\,\% der Jobs mit 2--3\,s Laufzeit, 15\,\% als Spike-Jobs mit 15--25\,s; Deadline einheitlich 30\,s. \\
+    \hline
+    S12 & Schw. Deadline + Burst & Burst-Ankunftsmuster wie S10; Laufzeit fest (2\,s); Deadline variiert stark zwischen 3 und 25\,s -- DMS kann dringliche Jobs priorisieren. \\
+    \hline
+    S13 & Schw. Deadline + Spitzen & Duration-Spitzen-Profil wie S11; Deadline wird je Job knapp über der Laufzeit gesetzt, sodass Spike-Jobs kaum Spielraum haben. \\
+    \hline
+    S14 & Alles schwankt & Alle Parameter variieren gleichzeitig: Ankunft 100--2000\,ms, Laufzeit 1--20\,s (8\,\% Ausreißer), Deadline-Puffer 1--20\,s über Laufzeit, gemischte Prioritätslabels. \\
+    \hline
+\end{tabular}}
+\caption{Gruppe 2: Generierte Szenarien S10--S14 (je 100 Jobs)}
+\label{tab:szenarien_s10_s14}
+\end{table}
+
+Beide Scheduling-Algorithmen werden für jedes Szenario mit identischer Eingabe ausgeführt und anschließend anhand der definierten Messgrößen verglichen. Die deterministischen Szenarien S01--S09 werden einmalig ausgewertet und dienen als stabiler Referenzpunkt. Die generierten Szenarien S10--S14 werden mit mehreren verschiedenen Seeds wiederholt, um die Robustheit der Algorithmen gegenüber zufälliger Parametervarianz zu untersuchen. Die Ergebnisse der Messungen sowie deren Auswertung und Interpretation folgen im nächsten Kapitel.
 
 \chapter{\textcolor{red}{Evaluation}}
+
+Ziel dieses Kapitels ist der empirische Vergleich der beiden verbliebenen Scheduling-Strategien FIFO und Deadline Monotonic Scheduling (DMS) anhand des implementierten Prototyps. Dazu werden zunächst die verwendeten Messgrößen und deren Relevanz für den Anwendungsfall erläutert. Anschließend wird die Versuchsdurchführung beschrieben. Danach folgt die Darstellung der erhobenen Messergebnisse, bevor abschließend eine begründete Algorithmusentscheidung getroffen wird.
+
+% -------------------------------------------------------
+\section{\textcolor{red}{Messgrößen und deren Bedeutung}}
+% -------------------------------------------------------
+
+Für einen aussagekräftigen Vergleich beider Strategien wurden fünf Kennzahlen erhoben, die unterschiedliche Aspekte der Scheduling-Qualität abbilden.
+
+\textbf{Durchschnittliche Wartezeit} bezeichnet die mittlere Zeitspanne zwischen dem Eingang eines Auftrags und dem Start seiner Ausführung. Sie misst direkt, wie lange ein Auftrag in der Warteschlange verweilt, bevor Rechenkapazität zugeteilt wird. Eine hohe Wartezeit deutet auf Staueffekte in der Warteschlange hin und ist besonders bei zeitkritischen Optimierungsanfragen problematisch.
+
+\textbf{Durchschnittliche Durchlaufzeit} ist die mittlere Gesamtzeit vom Eingang bis zum Abschluss eines Auftrags. Sie setzt sich aus Wartezeit und Ausführungszeit zusammen und gibt Aufschluss darüber, wie schnell ein Aufrufer sein Ergebnis erhält.
+
+\textbf{Maximale Wartezeit} erfasst den schlechtesten Einzelfall innerhalb eines Szenarios. Während der Durchschnittswert Ausreißer kaschieren kann, zeigt diese Kennzahl, ob einzelne Aufträge unverhältnismäßig lange blockiert werden -- ein Indikator für den \textit{Convoy Effect} bei FIFO oder für mangelnde \textit{Starvation-Prevention} bei DMS.
+
+\textbf{Deadline-Einhaltungsrate} gibt den Anteil der Aufträge an, deren Deadline eingehalten wurde. Da der OptimScheduler die \texttt{maxLaufzeit} eines Auftrags als Deadline interpretiert, ist diese Kennzahl das zentrale Qualitätsmerkmal im Sinne des Anwendungsfalls: Ein verfehlt eingehaltener Zeitrahmen bedeutet, dass ein Optimierungslauf verworfen wurde und kein verwertbares Ergebnis geliefert werden konnte.
+
+\textbf{Systemdurchsatz} beschreibt die Anzahl abgeschlossener Aufträge pro Sekunde. Er quantifiziert die Gesamtleistungsfähigkeit des Systems und zeigt, ob eine Scheduling-Strategie die verfügbare Parallelität effizient nutzt.
+
+% -------------------------------------------------------
+\section{\textcolor{red}{Versuchsdurchführung}}
+% -------------------------------------------------------
+
+\subsection{\textcolor{red}{Deterministische Szenarien (S01--S09)}}
+
+Die neun deterministischen Szenarien wurden jeweils \textbf{einmalig} pro Strategie ausgeführt. Da alle Parameter -- Ankunftsabstand, simulierte Laufzeit, Deadline und Parallelitätslimit -- fest vorgegeben sind, produziert jeder Lauf bei gleicher Eingabe ein reproduzierbares Ergebnis. Eine Wiederholung würde identische Messwerte liefern und bietet daher keinen zusätzlichen Erkenntnisgewinn. Jedes Szenario umfasst 100 Jobs, sodass über alle neun deterministischen Szenarien pro Strategie insgesamt 900 Aufträge verarbeitet wurden.
+
+\subsection{\textcolor{red}{Dynamische Szenarien (S10--S14)}}
+
+Die fünf dynamischen Szenarien enthalten kontrollierte Zufallsvariation und werden durch einen parametrisierbaren Generator erzeugt. Da jeder Generator-Lauf mit einem anderen Zufalls-Seed eine neue, leicht abweichende Instanz desselben Szenario-Typs erzeugt, können zufällige Ausreißer einzelner Seeds die Ergebnisse verzerren. Um statistisch belastbare Aussagen zu erhalten, wurde jedes dynamische Szenario \textbf{11 Mal} mit unterschiedlichen Seeds wiederholt. Die Messwerte der einzelnen Läufe wurden anschließend zu Durchschnittswerten zusammengefasst. Da jeder Lauf 100 Jobs pro Szenario enthält, wurden pro dynamischem Szenario und Strategie insgesamt \textbf{1\,100 Aufträge} in die Auswertung einbezogen.
+
+Dieses Vorgehen hat zwei wesentliche Vorteile: Erstens werden zufallsbedingte Schwankungen einzelner Instanzen geglättet, sodass die gemittelten Kennzahlen das typische Verhalten eines Szenario-Typs widerspiegeln. Zweitens kann durch die Streuung der Ergebnisse über die 11 Läufe beurteilt werden, ob ein Algorithmus konsistent besser abschneidet oder ob beobachtete Unterschiede lediglich auf einen günstigen Seed zurückzuführen sind.
+
+% -------------------------------------------------------
+\section{\textcolor{red}{Messergebnisse}}
+% -------------------------------------------------------
+
+\subsection{\textcolor{red}{Deterministische Szenarien (S01--S09)}}
+
+Tabelle~\ref{tab:ergebnisse_s01_s09} zeigt die Messwerte der einmalig durchgeführten deterministischen Szenarien für beide Strategien.
+
+\begin{table}[H]
+    \centering
+    \caption{Messergebnisse der deterministischen Szenarien S01--S09}
+    \label{tab:ergebnisse_s01_s09}
+    \resizebox{\linewidth}{!}{%
+    \setlength{\arrayrulewidth}{0.3pt}
+    \begin{tabular}{|l|l|r|r|r|r|r|}
+        \hline
+        \textbf{ID} & \textbf{Strat.} & \textbf{Ø Wartezeit (s)} & \textbf{Ø Durchlaufzeit (s)} & \textbf{Max. Wartezeit (s)} & \textbf{Deadline-Rate (\%)} & \textbf{Durchsatz (J/s)} \\
+        \hline
+        S01 & FIFO & $<$0{,}1 & 2{,}0 & 0{,}2 & 100 & 1{,}90 \\
+        S01 & DMS  & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 1{,}91 \\
+        \hline
+        S02 & FIFO & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 1{,}91 \\
+        S02 & DMS  & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 1{,}91 \\
+        \hline
+        S03 & FIFO & 24{,}4 & 26{,}4 & 48{,}7 & 7 & 0{,}99 \\
+        S03 & DMS  & 24{,}3 & 26{,}3 & 48{,}6 & 7 & 0{,}99 \\
+        \hline
+        S04 & FIFO & 14{,}1 & 16{,}1 & 28{,}3 & 12 & 1{,}97 \\
+        S04 & DMS  & 14{,}1 & 16{,}1 & 28{,}3 & 12 & 1{,}97 \\
+        \hline
+        S05 & FIFO & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 0{,}98 \\
+        S05 & DMS  & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 0{,}98 \\
+        \hline
+        S06 & FIFO & 23{,}8 & 27{,}8 & 47{,}6 & 4 & 0{,}98 \\
+        S06 & DMS  & 23{,}7 & 27{,}7 & 47{,}4 & 4 & 0{,}98 \\
+        \hline
+        S07 & FIFO & $<$0{,}1 & 1{,}0 & $<$0{,}1 & 100 & 1{,}95 \\
+        S07 & DMS  & $<$0{,}1 & 1{,}0 & $<$0{,}1 & 100 & 1{,}94 \\
+        \hline
+        S08 & FIFO & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 2 & 1{,}91 \\
+        S08 & DMS  & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 1 & 1{,}91 \\
+        \hline
+        S09 & FIFO & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 1{,}91 \\
+        S09 & DMS  & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 1{,}91 \\
+        \hline
+    \end{tabular}}
+\end{table}
+
+In den nicht überlasteten Szenarien (S01, S02, S05, S07, S09) erzielen beide Strategien eine Deadline-Einhaltungsrate von 100\,\% und eine Wartezeit von unter 0{,}1\,Sekunden -- die Warteschlange bleibt praktisch leer, da Jobs schneller abgearbeitet als neue eingereicht werden. In den Überlastungsszenarien (S03, S04, S06) treten hohe Wartezeiten und niedrige Deadline-Raten bei beiden Strategien nahezu identisch auf. Da alle Jobs in diesen Szenarien dieselbe Deadline besitzen, kann DMS keine differentielle Priorisierung vornehmen und verhält sich wie FIFO. S08 ist ein Grenzfall: Die Deadline entspricht exakt der Ausführungszeit (2\,s), sodass kein Puffer verbleibt und beide Strategien mit 1--2\,\% Deadline-Einhaltung scheitern.
+
+\subsection{\textcolor{red}{Dynamische Szenarien (S10--S14)}}
+
+Tabelle~\ref{tab:ergebnisse_s10_s14_avg} zeigt die über 11 Läufe gemittelten Messwerte. Fett hervorgehobene Werte markieren die jeweils bessere Strategie pro Szenario.
+
+\begin{table}[H]
+    \centering
+    \caption{Gemittelte Messergebnisse der dynamischen Szenarien S10--S14 (Ø über 11 Läufe, je 100 Jobs)}
+    \label{tab:ergebnisse_s10_s14_avg}
+    \resizebox{\linewidth}{!}{%
+    \setlength{\arrayrulewidth}{0.3pt}
+    \begin{tabular}{|l|l|r|r|r|r|r|}
+        \hline
+        \textbf{ID} & \textbf{Strat.} & \textbf{Ø Wartezeit (s)} & \textbf{Ø Durchlaufzeit (s)} & \textbf{Max. Wartezeit (s)} & \textbf{Deadline-Rate (\%)} & \textbf{Durchsatz (J/s)} \\
+        \hline
+        S10 & FIFO & 5{,}6 & 7{,}6 & 14{,}2 & 38{,}5 & 1{,}57 \\
+        S10 & DMS  & 5{,}6 & 7{,}6 & 14{,}3 & 38{,}6 & 1{,}57 \\
+        \hline
+        S11 & FIFO & 36{,}1 & 41{,}2 & 70{,}3 & 36{,}5 & 0{,}75 \\
+        S11 & DMS  & 36{,}1 & 41{,}2 & 70{,}3 & 36{,}6 & 0{,}75 \\
+        \hline
+        S12 & FIFO & 5{,}5 & 7{,}5 & 14{,}1 & 76{,}9 & 1{,}57 \\
+        S12 & DMS  & 5{,}5 & 7{,}5 & 20{,}9 & \textbf{99{,}7} & 1{,}57 \\
+        \hline
+        S13 & FIFO & 29{,}5 & 34{,}2 & 64{,}3 & 24{,}7 & 0{,}82 \\
+        S13 & DMS  & \textbf{23{,}1} & \textbf{27{,}8} & 63{,}6 & \textbf{35{,}9} & 0{,}80 \\
+        \hline
+        S14 & FIFO & 18{,}1 & 23{,}7 & 36{,}4 & 29{,}7 & 0{,}69 \\
+        S14 & DMS  & \textbf{15{,}1} & \textbf{20{,}7} & 44{,}0 & \textbf{37{,}7} & 0{,}69 \\
+        \hline
+    \end{tabular}}
+\end{table}
+
+In S10 und S11, in denen alle Jobs dieselbe Deadline erhalten, verhalten sich beide Algorithmen erwartungsgemäß nahezu identisch: DMS kann ohne variierende Deadlines keine Umordnung vornehmen und degeneriert zu FIFO-Verhalten. S12 liefert den markantesten Befund: Mit stark variierenden Deadlines (3--25\,s) und einem Burst-Ankunftsmuster priorisiert DMS zeitkritische Jobs konsequent vor und erzielt eine Deadline-Einhaltungsrate von \textbf{99{,}7\,\%}, während FIFO bei \textbf{76{,}9\,\%} verbleibt. In S13 und S14 -- mit Laufzeit-Ausreißern und individuell knapp gesetzten Deadlines -- reduziert DMS die durchschnittliche Wartezeit um 21{,}7\,\% (S13) bzw. 16{,}6\,\% (S14) und verbessert die Deadline-Einhaltungsrate in beiden Szenarien um über 8 Prozentpunkte.
+
+% -------------------------------------------------------
+\section{\textcolor{red}{Auswertung und Algorithmusentscheidung}}
+% -------------------------------------------------------
+
+Die Messergebnisse zeigen ein konsistentes Bild: In Szenarien ohne Deadline-Variation sind FIFO und DMS gleichwertig; sobald Aufträge unterschiedliche Deadlines tragen, erzielt DMS in allen betroffenen Szenarien bessere Ergebnisse -- insbesondere bei der Deadline-Einhaltungsrate als zentraler Qualitätsgröße.
+
+\textbf{Begründung für die Wahl von DMS}
+
+Der entscheidende Faktor ist die Übereinstimmung zwischen dem Algorithmus und dem realen Anwendungsfall. Im OptimScheduler gibt jeder Aufrufer optional eine \texttt{maxLaufzeit} mit, die direkt als Deadline in den DMS-Algorithmus einfließt. Ein RT-Optimierungslauf mit kurzer \texttt{maxLaufzeit} wird dadurch automatisch gegenüber einem PP-Lauf mit großzügiger Zeitvorgabe priorisiert -- ohne dass Prioritäten explizit gesetzt werden müssen. Genau diese implizite, deadline-getriebene Priorisierung ist der strukturelle Vorteil von DMS gegenüber FIFO und adressiert direkt die in der Ist-Analyse identifizierte Schwäche des bestehenden Systems: Das fehlende typenübergreifende Scheduling und die fehlende Priorisierung.
+
+Ein weiteres Argument für DMS ist sein Degradierungsverhalten: Erhalten alle Aufträge dieselbe Deadline oder keine \texttt{maxLaufzeit}, ordnet DMS die Warteschlange nicht um und verhält sich identisch zu FIFO. DMS stellt damit keine Regression gegenüber FIFO dar -- in den schlechtesten Fällen sind beide Algorithmen gleich, in den relevanten Fällen mit heterogenen Deadlines ist DMS klar überlegen.
+
+Dem gegenüber steht lediglich ein marginaler Nachteil: In S14 erzielt FIFO eine geringere maximale Wartezeit (36{,}4\,s vs. 44{,}0\,s bei DMS). Dieser Effekt entsteht, weil DMS durch die Umordnung zugunsten dringlicher Jobs einzelne Aufträge mit langer Deadline weiter nach hinten verschiebt. Da jedoch die Deadline-Einhaltungsrate und die durchschnittliche Wartezeit bei DMS besser sind, ist dieser Nachteil im Gesamtbild zu vernachlässigen.
+
+\textbf{Zusammenfassung der Entscheidung}
+
+Auf Basis der Evaluationsergebnisse wird \textbf{Deadline Monotonic Scheduling (DMS)} als Scheduling-Strategie für den OptimScheduler empfohlen. DMS ist in allen Szenarien mindestens gleichwertig mit FIFO und erzielt in denjenigen Szenarien, die dem realen Betriebsprofil am nächsten kommen -- variierende Deadlines, heterogene Laufzeiten -- messbar bessere Ergebnisse. Die Implementierungskomplexität ist gering, da lediglich eine priorisierte Warteschlange nach Deadline-Zeitstempel benötigt wird, und der Algorithmus benötigt keinerlei Vorabwissen über Laufzeiten oder externe Prioritätsvergabe.
+
 \chapter{\textcolor{red}{Fazit \& Ausblick}}
 
 \newpage
