@@ -45,6 +45,7 @@
 \addto\captionsngerman{%
   \renewcommand{\contentsname}{Inhaltsverzeichnis}%
 }
+\setcounter{tocdepth}{1}
 % --------------------------------------------------
 
 \begin{document}
@@ -104,8 +105,6 @@ SYNCROTESS BM ist eine von der INFORM GmbH entwickelte Softwarelösung für die 
 
 Dieser Tserv ist eine komplexe und über Jahre gewachsene Serveranwendung, die mit dem Betriebssystem Linux betrieben wird. Seine Aufgabe ist es, Stammdaten und Datenabfragen zu verarbeiten. Darüber hinaus verarbeitet er CRUD-Operationen zu den einzelnen Feldern. Zusätzlich steuert er den gesamten Lebenszyklus der Transportvorgänge. Ein wesentlicher Bestandteil ist dabei die Transportoptimierung. Auf Anfrage führt der Tserv spezialisierte Optimierungsalgorithmen aus, welche auf Grundlage der vorgelegten Daten optimale Dispositionsentscheidungen bestimmen. Zu den Daten, welche übermittelt werden zählen zum Beispiel Auftragsdaten (Mengen, Zeitfenster, etc.), Öffnungszeiten, Standorte, Fahrzeugtypen.
 
-\input{tserv_grafik}
-
 Der Tserv Master-Prozess wird dabei von außen über eine Mutation angesprochen. Dieser kann dabei durch einen Fork einzelne slave-Prozesse starten. Wenn er von einer Mutation angesprochen wird, schreibt er die Änderung in eine Datenbank und bei einer Datenbankänderung wird der Stand von allen slave-Prozessen angepasst. Der Tserv kann dabei von außen von einem Frontend, einem ERP-System oder einem Telematik-System angesprochen werden.
 
 \section{\textcolor{orange}{Optimierer}}
@@ -134,7 +133,6 @@ ftlopt -i ftlopt1.json -w /tmp/workdir/ -s ftlopt1.sol.json
 In dem Kommando sieht man, dass über -u die Eingabedatei übergeben wird. Durch -w wird das Arbeitsverzeichnis übergeben, und mit -s wird die Ausgabedatei mit dem Optimierungsergebnis definiert.
 
 \section{\textcolor{orange}{Aktueller Ablauf einer Optimierung}}
-\input{optimiererablauf_grafik}
 
 Die grundlegenden Aufgaben der einzelnen Optimierer sind nun bekannt. Nun wird der grundlegende Ablauf einer Optimierung erläutert. Momentan läuft die Optimierung im System wie folgt ab:
 \begin{itemize}
@@ -143,7 +141,7 @@ Die grundlegenden Aufgaben der einzelnen Optimierer sind nun bekannt. Nun wird d
     \item Dort wird dann das passende Shell-Skript-Template instanziiert und ausgeführt, welches den entsprechenden Optimierer-Prozess startet.
 \end{itemize}
 
-Der Optimierer-Prozess wird dabei als \textit{Fork} gestartet - das bedeutet, dass ein slave-Prozess auf demselben Host-System erzeugt wird, der die Ausführung des Optimierers übernimmt. Dabei wird eine Dateischnittstelle zwischen Tserv und Optimierer verwendet. Der Tserv schreibt also die Eingabedatei im CSV- oder JSON-Format, die der Tserv-Master einliest und weiterverarbeitet.
+Der Optimierer-Prozess wird dabei als \textit{Fork} {\citep[Vgl.][S.53f.]{tanenbaum2015}} gestartet - das bedeutet, dass ein slave-Prozess auf demselben Host-System erzeugt wird, der die Ausführung des Optimierers übernimmt. Dabei wird eine Dateischnittstelle zwischen Tserv und Optimierer verwendet. Der Tserv schreibt also die Eingabedatei im CSV- oder JSON-Format, die der Tserv-Master einliest und weiterverarbeitet.
 
 \subsection{\textcolor{orange}{Dispatch-Gruppen und Optimierungstypen}}
 
@@ -222,7 +220,7 @@ Da nun die Probleme des Ist-Zustandes des Tserv-Systems identifiziert wurden, we
 Der Optimscheduler soll in einem speziellen Umfeld entwickelt und betrieben werden. Die folgenden Vorbedingungen definieren die Rahmenbedingungen:
 
 \begin{itemize}
-    \item Der OptimScheduler wird als Webservice in Java entwickelt. Dabei wird das Framework Spring Boot verwendet
+    \item Der OptimScheduler wird als Webservice in Java entwickelt. Dabei wird das Framework Spring Boot~\textcolor{red}{\citep[Vgl.]{springboot2024}} verwendet
     \item Angesprochen wird der Scheduler über eine REST-Schnittstelle
     \item Der OptimScheduler wird als alleinstehender Dienst implementiert, ohne direkte Verbindung mit dem Tserv
     \item Er kann auf einem separaten System gehostet werden, muss aber mit dem Tserv kommunizieren können
@@ -263,7 +261,7 @@ Ein Auftrag wird von einem externen Dienst an den OptimScheduler geschickt. Dies
 
 \section{\textcolor{red}{Softwarearchitektur und Technologien}}
 \begin{itemize}
-    \item \textbf{REST-API}: Der Scheduler stellt für die Optimierungsabfragen eine REST-Schnittstelle zur Verfügung
+    \item \textbf{REST-API}~\textcolor{red}{\citep[Vgl.][S.76ff]{fielding2000}}: Der Scheduler stellt für die Optimierungsabfragen eine REST-Schnittstelle zur Verfügung
     \item \textbf{Eingabeformat}: Ein- und Ausgabe wird im Format JSON und CSV akzeptiert und verarbeitet
     \item \textbf{Parallelisierung}: Der Scheduler soll mehrere Prozesse für die Optimierung parallel verarbeiten können
     \item \textbf{Scheduling-Algorithmus}: Die Reihenfolge der Abarbeitung der wartenden Prozesse, wird durch einen Scheduling-Algorithmus bestimmt
@@ -276,19 +274,19 @@ Ein Auftrag wird von einem externen Dienst an den OptimScheduler geschickt. Dies
 Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 
 \subsection{\textcolor{red}{Non-Preemptive Priority Scheduling}}
-\textbf{Funktionsweise:} Jeder Auftrag bekommt eine statische Priorität zugewiesen. Die Aufträge mit der höheren Priorität werden gegenüber den mit geringerer Priortät bevorzugt verarbeitet. Ein laufender Prozess kann nicht unterbrochen werden auch wenn ein neuer Prozess mit höherer Priorität dazu kommt. Der neue Auftrag wird erst gestartet, nach dem ein vorheriger fertig geworden ist.
+\textbf{Funktionsweise:} Jeder Auftrag bekommt eine statische Priorität zugewiesen. Die Aufträge mit der höheren Priorität werden gegenüber den mit geringerer Priortät bevorzugt verarbeitet. Ein laufender Prozess kann nicht unterbrochen werden auch wenn ein neuer Prozess mit höherer Priorität dazu kommt. Der neue Auftrag wird erst gestartet, nach dem ein vorheriger fertig geworden ist.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_priority}}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
     \item[+] Relativ einfach zu implementieren
     \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
-    \item[-] Kann bei hoher Auslastung zu \textit{Starvation} von Aufträgen mit geringer Priorität führen
+    \item[-] Kann bei hoher Auslastung zu \textit{Starvation}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}} von Aufträgen mit geringer Priorität führen
     \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
     \item Scheduling-Typ: nicht präemptiv
 \end{itemize}
 
 \subsection{\textcolor{red}{Preemptive Priority Scheduling}}
-\textbf{Funktionsweise:} Auch hier bekommt jeder Auftrag eine statische Priorität hinzugefügt. Im Vergleich zum \textit{Non-Preemptive Priority Scheduling} kann hier eine höhere Priorität einen laufenden Prozess unterbrechen und ersetzen.
+\textbf{Funktionsweise:} Auch hier bekommt jeder Auftrag eine statische Priorität hinzugefügt. Im Vergleich zum \textit{Non-Preemptive Priority Scheduling} kann hier eine höhere Priorität einen laufenden Prozess unterbrechen und ersetzen.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_priority}}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -302,19 +300,19 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{First in First Out (FIFO)}}
-\textbf{Funktionsweise:} Aufträge werden in der Reihenfolge bearbeitet, in der sie ankommen. Der erste eingegangene Auftrag wird auch als erstes bearbeitet. Ein neuer Auftrag wird nur dann gestartet, wenn der vorherige abgeschlossen wurde.
+\textbf{Funktionsweise:} Aufträge werden in der Reihenfolge bearbeitet, in der sie ankommen. Der erste eingegangene Auftrag wird auch als erstes bearbeitet. Ein neuer Auftrag wird nur dann gestartet, wenn der vorherige abgeschlossen wurde.~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
     \item[+] Einfach zu implementieren
     \item[-] Keine Priorisierung möglich
-    \item[-] Risiko: \textit{Convoy Effect} kann auftreten. Das heißt, dass ein langer Prozess alle anderen blockiert
+    \item[-] Risiko: \textit{Convoy Effect}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}} kann auftreten. Das heißt, dass ein langer Prozess alle anderen blockiert
     \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
     \item Scheduling-Typ: nicht präemptiv
 \end{itemize}
 
 \subsection{\textcolor{red}{Deadline Monotonic Scheduling (DMS)}}
-\textbf{Funktionsweise:} DMS ist, wie das \textit{Non-Preemptive Priority Scheduling} ein statisches Prioritäts-Scheduling-Verfahren. Hier wird die Deadline also auch statisch bestimmt, aber nicht direkt gesetzt, sondern mit einer Deadline also einer maximalen Bearbeitungszeit verknüpft. Hier gilt also: Der Auftrag mit der kürzeren Zeit zwischen jetzt und der Deadline wird als nächstes genommen.
+\textbf{Funktionsweise:} DMS ist, wie das \textit{Non-Preemptive Priority Scheduling} ein statisches Prioritäts-Scheduling-Verfahren. Hier wird die Deadline also auch statisch bestimmt, aber nicht direkt gesetzt, sondern mit einer Deadline also einer maximalen Bearbeitungszeit verknüpft. Hier gilt also: Der Auftrag mit der kürzeren Zeit zwischen jetzt und der Deadline wird als nächstes genommen.~\textcolor{red}{\citep[Vgl.][S.~46--61]{liu1973}}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -327,7 +325,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Least Slack Time First (LSF)}}
-\textbf{Funktionsweise:} LSF berechnet für jeden Auftrag die \textit{Slack Time} (Slack Time = Deadline - Restlaufzeit - aktuelle Zeit). Dabei hat immer der Auftrag mit der geringsten \textit{Slack Time} die höchste Priorität. Dieser Algorithmus berücksichtigt also zusätzlich die verbleibende Rechenzeit.
+\textbf{Funktionsweise:} LSF berechnet für jeden Auftrag die \textit{Slack Time} (Slack Time = Deadline - Restlaufzeit - aktuelle Zeit). Dabei hat immer der Auftrag mit der geringsten \textit{Slack Time} die höchste Priorität. Dieser Algorithmus berücksichtigt also zusätzlich die verbleibende Rechenzeit.~\textcolor{red}{\citep[Vgl.][o.\,S.]{huberlin_echtzeit}}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -341,7 +339,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Highest Response Ratio Next}}
-\textbf{Funktionsweise:} Bei diesem Scheduling-Algorithmus werden die Aufträge nach der sogenannten \textit{Response Ration} sortiert. Die Response Ratio wird berechnet als: $\frac{\text{Wartezeit} + \text{Bearbeitungszeit}}{\text{Bearbeitungszeit}}$. 
+\textbf{Funktionsweise:} Bei diesem Scheduling-Algorithmus werden die Aufträge nach der sogenannten \textit{Response Ration} sortiert. Die Response Ratio wird berechnet als: $\frac{\text{Wartezeit} + \text{Bearbeitungszeit}}{\text{Bearbeitungszeit}}$.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_hrrn}} 
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -354,7 +352,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Shortest Job First (SJF)}}
-\textbf{Funktionsweise:} Hier wird immer der Auftrag als nächstes gewählt, der die geringste Bearbeitungszeit hat. Der Prozess läuft, wenn er gestartet wurde, bis zum ende durch. Ziel dieses Algorithmus ist es, die Wartezeit zu minimieren, indem die kürzesten Aufträge immer zuerst abgearbeitet werden.
+\textbf{Funktionsweise:} Hier wird immer der Auftrag als nächstes gewählt, der die geringste Bearbeitungszeit hat. Der Prozess läuft, wenn er gestartet wurde, bis zum ende durch. Ziel dieses Algorithmus ist es, die Wartezeit zu minimieren, indem die kürzesten Aufträge immer zuerst abgearbeitet werden.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_srtf}}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -367,7 +365,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Shortest Remaining Time First}}
-\textbf{Funktionsweise:} Dieser Algorithmus ist die präemtive Variante von SJF. Hier wird der Prozess mit der geringsten geschätzten Restlaufzeit bevorzugt. Wenn ein neuer Auftrag also ankommt und dessen Restlaufzeit geringer ist, als die des gerade laufenden Prozesse, dann wir der aktuell laufende Prozess unterbrochen und der neue Auftrag dafür abgearbeitet.
+\textbf{Funktionsweise:} Dieser Algorithmus ist die präemtive Variante von SJF. Hier wird der Prozess mit der geringsten geschätzten Restlaufzeit bevorzugt. Wenn ein neuer Auftrag also ankommt und dessen Restlaufzeit geringer ist, als die des gerade laufenden Prozesse, dann wir der aktuell laufende Prozess unterbrochen und der neue Auftrag dafür abgearbeitet.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_srtf}}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -483,7 +481,7 @@ Dieser Abschnitt beschreibt den groben Ablauf und den grundlegenden Aufbau des O
 \subsection{\textcolor{red}{Überblick}}
 Der OptimScheduler ist ein selbstständiger Webservice, der als Docker-Container betrieben wird. Der Webservice kapselt die gesamte Logik für die Steuerung der Ausführung die Optimierungsprozesse. Dadurch entkoppelt er gleichzeitig diese vom Tserv. Es können Optimierungsprozesse direkt über eine REST-Schnittstelle und nicht nur über eine Dateischnittstelle vom Tserv aufgerufen werden.
 
-Eine wesentliche Designentscheidung des Webservice ist, dass jeder Optimierungslauf als eigener \textbf{Kubernetes-Pod} gestartet wird. Dadurch werden die einzelnen Optimierungsläufe vom Host-System isoliert; Ressourcen können somit pro Pod gezielter festgelegt werden und dadurch ist auch eine flexible Skalierung über die Kubernetes-Infrastruktur möglich.
+Eine wesentliche Designentscheidung des Webservice ist, dass jeder Optimierungslauf als eigener \textbf{Kubernetes-Pod}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{kubernetes2024}} gestartet wird. Dadurch werden die einzelnen Optimierungsläufe vom Host-System isoliert; Ressourcen können somit pro Pod gezielter festgelegt werden und dadurch ist auch eine flexible Skalierung über die Kubernetes-Infrastruktur möglich.
 
 \subsection{\textcolor{red}{Ablauf}}
 Der typische Ablauf einer Optimierungsanfrage ist wie folgt:
@@ -576,7 +574,7 @@ FIFO ist ein relativ einfaches Scheduling-Verfahren: Die eingehenden Optimierung
 
 Der größte Vorteil von FIFO liegt in der Vorhersehbarkeit. Jeder Auftrag wird  irgendwann ausgeführt. Dadurch wird \textit{Starvation}, also das Übergehen eines Auftrags, vermieden. Zudem hängt die Wartezeit eines Prozesses ausschließlich von den zuvor eingegangenen Prozessen ab.
 
-Ein bekanntes Problem des FIFO Algorithmus ist der sogenannte \textit{Convoy Effect}. Das bedeutet, dass ein langwieriger Prozess die Warteschlange blockiert, wobei die Dringlichkeit nicht berücksichtigt wird. In einem Szenario, in dem zeitkritische Aufträge bearbeitet werden sollen, kann das zu unerwünschten Verzögerungen führen.
+Ein bekanntes Problem des FIFO Algorithmus ist der sogenannte \textit{Convoy Effect}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}}. Das bedeutet, dass ein langwieriger Prozess die Warteschlange blockiert, wobei die Dringlichkeit nicht berücksichtigt wird. In einem Szenario, in dem zeitkritische Aufträge bearbeitet werden sollen, kann das zu unerwünschten Verzögerungen führen.
 
 \subsubsection{\textcolor{red}{Schematische Darstellung}}
 Abbildung~\ref{fig:fifo_queue} zeigt den grundlegenden Aufbau einer FIFO-Warteschlange. Neue Aufträge werden am hinteren Ende eingereiht und am vorderen Ende entnommen.
@@ -650,7 +648,7 @@ In der Tabelle lässt sich erkennen, dass erst Job A, dann Job B und dann Job C 
 
 \subsection{\textcolor{red}{Deadline Monotonic Scheduling (DMS)}}
 \subsubsection{\textcolor{red}{Funktionsweise}}
-Beim Deadline Monotonic Scheduling ist die Ausführungsreihenfolge über die Deadlines der Aufträge bestimmt. Dabei hat der Auftrag mit der nächstliegenden Deadline die höchste Priorität.
+Beim Deadline Monotonic Scheduling~\textcolor{red}{\citep[Vgl.][S.~46--61]{liu1973}} ist die Ausführungsreihenfolge über die Deadlines der Aufträge bestimmt. Dabei hat der Auftrag mit der nächstliegenden Deadline die höchste Priorität.
  Diese Priorität wird ausschließlich aus der Deadline bestimmt und ist damit implizit. Es muss also keine Priorität von außen mitgegeben werden.
 
 In Verbindung mit dem OptimScheduler lässt sich die \texttt{maxLaufzeit} aus dem Anfrage-Payload als Deadline ableiten. Die Deadline ergibt sich dann aus dem Eingangszeitpunkt und der maximalen Laufzeit ($\text{Deadline} = t_\text{Eingang} + \texttt{maxLaufzeit}$). Wenn keine \texttt{maxLaufzeit} definiert ist, dann erhält der Auftrag die Deadline unendlich und hat damit automatisch die niedrigste Priorität.
@@ -765,8 +763,8 @@ Beide Algorithmen, also DMS und FIFO, werden als Prototyp im Webservice austausc
 \subsection{\textcolor{red}{Messgrößen}}
 Für die Analyse der Algorithmen werden folgende Kennzahlen ausgewertet:
 \begin{itemize}
-    \item \textbf{Durchschnittliche Wartezeit}: Mittlere Zeitspanne zwischen Eingang eines Auftrags und dem Start seiner Ausführung
-    \item \textbf{Durchschnittliche Durchlaufzeit}: Mittlere Zeitspanne zwischen Eingang und Abschluss eines Auftrags
+    \item \textbf{Durchschnittliche Wartezeit}: Mittlere Zeitspanne zwischen dem Eingang eines Auftrags und dem Start seiner Ausführung
+    \item \textbf{Durchschnittliche Durchlaufzeit}: Mittlere Zeitspanne zwischen dem Eingang und Abschluss eines Auftrags
     \item \textbf{Deadline-Einhaltungsrate}: Anteil der Aufträge, deren Deadline eingehalten wurde
     \item \textbf{Maximale Wartezeit}: Längste aufgetretene Wartezeit über alle Aufträge eines Szenarios
     \item \textbf{Systemdurchsatz}: Anzahl der abgeschlossenen Aufträge pro Zeiteinheit
@@ -774,16 +772,16 @@ Für die Analyse der Algorithmen werden folgende Kennzahlen ausgewertet:
 
 \subsection{\textcolor{red}{Versuchsaufbau}}
 
-Für die Evaluation wird ein prototypischer Webservice implementiert, der das Scheduling-Verhalten beider Algorithmen unter kontrollierten Bedingungen messbar macht. Da der Fokus auf dem Scheduling-Verhalten und nicht auf der eigentlichen Optimierungslogik liegt, wird die Ausführung der Optimierer (\textit{ftlopt}, \textit{coflo}, \textit{MIXOR}) durch ein \textbf{Mock-Modell} ersetzt: Jeder Auftrag simuliert seine Laufzeit ausschließlich durch einen \texttt{Thread.sleep()}-Aufruf für die im Auftrag definierte Dauer. Eine echte Optimierungsberechnung findet dabei nicht statt.
+Für die Evaluation wird ein Webservice als Prototyp implementiert, der das Scheduling-Verhalten beider Algorithmen unter kontrollierten Bedingungen messbar macht. Da der Fokus auf dem Scheduling-Verhalten und nicht auf der eigentlichen Optimierungslogik liegt, wird die Ausführung der Optimierer (\textit{ftlopt}, \textit{coflo}, \textit{MIXOR}) durch ein \textbf{Mock-Modell} ersetzt. Dabei wird jeder Auftrag simuliert, indem seine Laufzeit ausschließlich durch einen \texttt{Thread.sleep()}-Aufruf für die im Auftrag definierte Dauer bestimmt wird. Eine echte Optimierungsberechnung findet dabei nicht statt.
 
-Dieser Ansatz stellt sicher, dass die Laufzeiten der Aufträge vollständig kontrollierbar und reproduzierbar sind. Die Scheduling-Logik selbst -- Warteschlange, Parallelitätslimit, Deadline-Prüfung und Wartezeitmessung -- ist vollständig real implementiert und wird durch das Mock-Modell nicht verändert. Damit ist eine faire und isolierte Bewertung beider Algorithmen möglich.
+Dieser Ansatz stellt sicher, dass die Laufzeiten der Aufträge vollständig kontrollierbar und reproduzierbar sind. Die Scheduling-Logik selbst -- Warteschlange, Parallelitätslimit, Deadline-Prüfung und Wartezeitmessung -- ist vollständig real implementiert und wird durch das Mock-Modell nicht verändert. Somit ist eine faire und isolierte Bewertung beider Algorithmen möglich.
 
 Jeder Job wird durch folgende Parameter beschrieben:
 \begin{itemize}
-    \item \textbf{arrivalOffsetMs}: Zeitversatz in Millisekunden gegenüber dem Evaluierungsstart, zu dem der Auftrag eingeht
-    \item \textbf{simulatedDurationSeconds}: Simulierte Laufzeit des Auftrags; entspricht der Dauer des \texttt{Thread.sleep}
-    \item \textbf{maxRuntimeSeconds}: Maximale Laufzeit (Deadline) des Auftrags; eine Überschreitung wird als Deadline-Verfehlung gewertet
-    \item \textbf{maxParallelJobs}: Maximale Anzahl gleichzeitig ausführbarer Jobs innerhalb des Szenarios
+    \item \textbf{Ankunft}: Zeitversatz in Millisekunden gegenüber dem Evaluierungsstart, zu dem der Auftrag eingeht
+    \item \textbf{Dauer}: Simulierte Laufzeit des Auftrags; entspricht der Dauer von \texttt{Thread.sleep}
+    \item \textbf{Deadline}: Maximale Laufzeit (Deadline) des Auftrags; eine Überschreitung wird als Deadline-Verfehlung gewertet
+    \item \textbf{Jobs}: Maximale Anzahl gleichzeitig ausführbarer Jobs innerhalb des Szenarios
 \end{itemize}
 
 Die Messungen werden anhand von \textbf{14 definierten Testszenarien} durchgeführt, die in zwei Gruppen unterteilt sind. Jedes Szenario enthält 100 Jobs.
@@ -794,9 +792,9 @@ Diese neun Szenarien sind vollständig deterministisch und isolieren jeweils ein
 \begin{table}[H]
 \centering
 {\setlength{\arrayrulewidth}{0.3pt}
-\begin{tabular}{|p{0.05\textwidth}|p{0.21\textwidth}|p{0.06\textwidth}|p{0.10\textwidth}|p{0.08\textwidth}|p{0.09\textwidth}|p{0.23\textwidth}|}
+\begin{tabular}{|p{0.05\textwidth}|p{0.18\textwidth}|p{0.06\textwidth}|p{0.10\textwidth}|p{0.08\textwidth}|p{0.12\textwidth}|p{0.23\textwidth}|}
     \hline
-    \textbf{ID} & \textbf{Name} & \textbf{Slots} & \textbf{Ankunft} & \textbf{Dauer} & \textbf{Deadline} & \textbf{Isolierter Parameter} \\
+    \textbf{ID} & \textbf{Name} & \textbf{Jobs} & \textbf{Ankunft} & \textbf{Dauer} & \textbf{Deadline} & \textbf{Isolierter Parameter} \\
     \hline
     S01 & Ausgeglichen         & 4 & 500\,ms  & 2\,s & 5\,s  & Baseline \\
     \hline
@@ -822,7 +820,7 @@ Diese neun Szenarien sind vollständig deterministisch und isolieren jeweils ein
 \end{table}
 
 \paragraph{Gruppe 2 -- Generierte Szenarien (S10--S14)}
-Diese fünf Szenarien enthalten kontrollierte Zufallsvariation, um realistischere Betriebssituationen mit schwankenden Parametern zu simulieren. Sie werden von einem parametrisierbaren Generator erzeugt; durch Variation des Zufalls-Seeds entstehen verschiedene Instanzen desselben Szenario-Typs, sodass die Stabilität der Ergebnisse über mehrere Läufe geprüft werden kann.
+Diese fünf Szenarien enthalten kontrollierte Zufallsvariationen, um realistischere Betriebssituationen mit schwankenden Parametern zu simulieren. Sie werden von einem parametrisierbaren Generator erzeugt.
 
 \begin{table}[H]
 \centering
@@ -846,54 +844,40 @@ Diese fünf Szenarien enthalten kontrollierte Zufallsvariation, um realistischer
 \label{tab:szenarien_s10_s14}
 \end{table}
 
-Beide Scheduling-Algorithmen werden für jedes Szenario mit identischer Eingabe ausgeführt und anschließend anhand der definierten Messgrößen verglichen. Die deterministischen Szenarien S01--S09 werden einmalig ausgewertet und dienen als stabiler Referenzpunkt. Die generierten Szenarien S10--S14 werden mit mehreren verschiedenen Seeds wiederholt, um die Robustheit der Algorithmen gegenüber zufälliger Parametervarianz zu untersuchen. Die Ergebnisse der Messungen sowie deren Auswertung und Interpretation folgen im nächsten Kapitel.
+Beide Scheduling-Algorithmen werden für jedes Szenario mit identischer Eingabe ausgeführt und anschließend anhand der definierten Messgrößen verglichen. Die deterministischen Szenarien S01--S09 werden einmalig ausgewertet und dienen als stabiler Referenzpunkt. Die generierten Szenarien S10--S14 werden mit mehreren verschiedenen generierten Varianten wiederholt, um die Robustheit der Algorithmen gegenüber zufälliger Parametervarianz zu untersuchen. Die Ergebnisse der Messungen sowie deren Auswertung und Interpretation folgen im nächsten Kapitel.
 
 \chapter{\textcolor{red}{Evaluation}}
+Ziel dieses Kapitels liegt im empirischen Vergleich der beiden verbleibenden Scheduling-Algorithmen, FIFO und DMS. Dies geschieht anhand des implementierten Prototyps. Dafür werden zunächst die verwendeten Messgrößen und deren Relevanz für die beschriebenen Anwendungsfälle erläutert. Des Weiteren wird die Versuchsdurchführung beschrieben. Anschließend folgt die Darstellung der Messergebnisse, bevor eine begründete Algorithmusentscheidung getroffen wird.
 
-Ziel dieses Kapitels ist der empirische Vergleich der beiden verbliebenen Scheduling-Strategien FIFO und Deadline Monotonic Scheduling (DMS) anhand des implementierten Prototyps. Dazu werden zunächst die verwendeten Messgrößen und deren Relevanz für den Anwendungsfall erläutert. Anschließend wird die Versuchsdurchführung beschrieben. Danach folgt die Darstellung der erhobenen Messergebnisse, bevor abschließend eine begründete Algorithmusentscheidung getroffen wird.
-
-% -------------------------------------------------------
 \section{\textcolor{red}{Messgrößen und deren Bedeutung}}
-% -------------------------------------------------------
+Um einen aussagekräftigen Vergleich beider Strategien zu gewährleisten, wurden fünf Kennzahlen erhoben, die unterschiedliche Aspekte der Qualität des Scheduling-Algorithmus abbilden.
 
-Für einen aussagekräftigen Vergleich beider Strategien wurden fünf Kennzahlen erhoben, die unterschiedliche Aspekte der Scheduling-Qualität abbilden.
+\textbf{Durchschnittliche Wartezeit} bezeichnet die mittlere Zeitspanne zwischen dem Eingang eines Auftrags und dem Start seiner Ausführung. Es wird damit also die Dauer gemessen, wie lange ein Auftrag in der Warteschlange verweilt, bevor er Rechenkapazität zugeteilt bekommt. Eine hohe Wartezeit deutet auf Staueffekte in der Warteschlange hin und könnte bei besonders zeitkritsichen Optimierunsanfragen problematisch werden.
 
-\textbf{Durchschnittliche Wartezeit} bezeichnet die mittlere Zeitspanne zwischen dem Eingang eines Auftrags und dem Start seiner Ausführung. Sie misst direkt, wie lange ein Auftrag in der Warteschlange verweilt, bevor Rechenkapazität zugeteilt wird. Eine hohe Wartezeit deutet auf Staueffekte in der Warteschlange hin und ist besonders bei zeitkritischen Optimierungsanfragen problematisch.
+\textbf{Durchschnittliche Durchlaufzeit} ist die mittlere Gesamtzeit, die vom Eingang bis zum Abschluss eines Auftrages vergeht. Diese setzt sich aus der Wartezeitund der Ausführungszeit zusammen und zeigt wie schnell ein Aufruf zu einem Ergebnis führt.
 
-\textbf{Durchschnittliche Durchlaufzeit} ist die mittlere Gesamtzeit vom Eingang bis zum Abschluss eines Auftrags. Sie setzt sich aus Wartezeit und Ausführungszeit zusammen und gibt Aufschluss darüber, wie schnell ein Aufrufer sein Ergebnis erhält.
+\textbf{Maximale Wartezeit} erfasst den schlechtesten Einzelfall innerhalb eines Szenarios. Dieser Wert kann nicht, wie ein Durchschnittswert, Ausreißer kaschieren. Er zeigt jedoch, ob einzelne Aufträge unverhältnismäßig lange blockiert werden, und somit ist dieser ein Indikator für den \textit{Convoy Effect} bei FIFO oder für mangelnde \textit{Starvation-Prevention} bei DMS.
 
-\textbf{Maximale Wartezeit} erfasst den schlechtesten Einzelfall innerhalb eines Szenarios. Während der Durchschnittswert Ausreißer kaschieren kann, zeigt diese Kennzahl, ob einzelne Aufträge unverhältnismäßig lange blockiert werden -- ein Indikator für den \textit{Convoy Effect} bei FIFO oder für mangelnde \textit{Starvation-Prevention} bei DMS.
-
-\textbf{Deadline-Einhaltungsrate} gibt den Anteil der Aufträge an, deren Deadline eingehalten wurde. Da der OptimScheduler die \texttt{maxLaufzeit} eines Auftrags als Deadline interpretiert, ist diese Kennzahl das zentrale Qualitätsmerkmal im Sinne des Anwendungsfalls: Ein verfehlt eingehaltener Zeitrahmen bedeutet, dass ein Optimierungslauf verworfen wurde und kein verwertbares Ergebnis geliefert werden konnte.
+\newpage
+\textbf{Deadline-Einhaltungsrate} gibt den Anteil der Aufträge an, deren Deadline eingehalten wurde. Da der OptimScheduler die \texttt{maxLaufzeit} eines Auftrags als Deadline interpretiert, ist die Kennzahl das zentrale Qualitätsmerkmal. Ein verfehlter Zeitrahmen bedeutet also, dass der Optimierungslauf verworfen und die Deadline nicht eingehalten wurde.
 
 \textbf{Systemdurchsatz} beschreibt die Anzahl abgeschlossener Aufträge pro Sekunde. Er quantifiziert die Gesamtleistungsfähigkeit des Systems und zeigt, ob eine Scheduling-Strategie die verfügbare Parallelität effizient nutzt.
 
-% -------------------------------------------------------
 \section{\textcolor{red}{Versuchsdurchführung}}
-% -------------------------------------------------------
-
 \subsection{\textcolor{red}{Deterministische Szenarien (S01--S09)}}
-
-Die neun deterministischen Szenarien wurden jeweils \textbf{einmalig} pro Strategie ausgeführt. Da alle Parameter -- Ankunftsabstand, simulierte Laufzeit, Deadline und Parallelitätslimit -- fest vorgegeben sind, produziert jeder Lauf bei gleicher Eingabe ein reproduzierbares Ergebnis. Eine Wiederholung würde identische Messwerte liefern und bietet daher keinen zusätzlichen Erkenntnisgewinn. Jedes Szenario umfasst 100 Jobs, sodass über alle neun deterministischen Szenarien pro Strategie insgesamt 900 Aufträge verarbeitet wurden.
+Jedes der neun deterministischen Szenarien wurden jeweils \textbf{einmalig} pro Strategie ausgeführt. da keiner der Parameter zwischen den Jobs variiert und fest definiert sind, produziert der Lauf bei gleicher Eingabe ein reproduzierbares Ergebnis. Eine wiederholte Ausführung dieser Szenarien bietet keinen zusätzlichen Erkenntnisgewinn und würde somit keinen Sinn machen. Alle neun Szenarien umfassen 100 Jobs, sodass über alle neun deterministische Szenarien hinweg insgesamt 900 Aufträge verarbeitet wurden.
 
 \subsection{\textcolor{red}{Dynamische Szenarien (S10--S14)}}
+Die fünf dynamischen Szenarien enthalten kontrollierte Zufallsvariation durch einen parametriesierbaren Generator. Da jeder Generator-Lauf leicht abgewandelte Aufträge erzeugt , können Ausreißer in den Daten zu Verzerrungen des Ergebnisses führen. Um statisch belastbare Aussagen zu erhalten, wurde jedes dynamische Szenario zehn mal ausgeführt mit immer wieder neu generierten Szenarien. Die Messewerte der einzelnen Läufe wurden anschließend zu durchschnittswerten zusammen gefasst. Da in jedem Lauf 100 Aufträge pro Szenario abgearbeitet werden wurden für jedes dynamisches Szenario insgesamt 1000 Aufträge analysiert.
 
-Die fünf dynamischen Szenarien enthalten kontrollierte Zufallsvariation und werden durch einen parametrisierbaren Generator erzeugt. Da jeder Generator-Lauf mit einem anderen Zufalls-Seed eine neue, leicht abweichende Instanz desselben Szenario-Typs erzeugt, können zufällige Ausreißer einzelner Seeds die Ergebnisse verzerren. Um statistisch belastbare Aussagen zu erhalten, wurde jedes dynamische Szenario \textbf{11 Mal} mit unterschiedlichen Seeds wiederholt. Die Messwerte der einzelnen Läufe wurden anschließend zu Durchschnittswerten zusammengefasst. Da jeder Lauf 100 Jobs pro Szenario enthält, wurden pro dynamischem Szenario und Strategie insgesamt \textbf{1\,100 Aufträge} in die Auswertung einbezogen.
+Dieses Vorgehen hat vor allem einen Vorteil. Das ist der, dass zufallsbedingte Schwankungen einzelner Durchläufe ausgeglichen werden, sodass die Durchschnittswerte der Kennzahlen das typische Verhalten eines Szenarios beschreiben.
 
-Dieses Vorgehen hat zwei wesentliche Vorteile: Erstens werden zufallsbedingte Schwankungen einzelner Instanzen geglättet, sodass die gemittelten Kennzahlen das typische Verhalten eines Szenario-Typs widerspiegeln. Zweitens kann durch die Streuung der Ergebnisse über die 11 Läufe beurteilt werden, ob ein Algorithmus konsistent besser abschneidet oder ob beobachtete Unterschiede lediglich auf einen günstigen Seed zurückzuführen sind.
-
-% -------------------------------------------------------
 \section{\textcolor{red}{Messergebnisse}}
-% -------------------------------------------------------
-
 \subsection{\textcolor{red}{Deterministische Szenarien (S01--S09)}}
-
 Tabelle~\ref{tab:ergebnisse_s01_s09} zeigt die Messwerte der einmalig durchgeführten deterministischen Szenarien für beide Strategien.
 
 \begin{table}[H]
     \centering
-    \caption{Messergebnisse der deterministischen Szenarien S01--S09}
-    \label{tab:ergebnisse_s01_s09}
     \resizebox{\linewidth}{!}{%
     \setlength{\arrayrulewidth}{0.3pt}
     \begin{tabular}{|l|l|r|r|r|r|r|}
@@ -928,18 +912,21 @@ Tabelle~\ref{tab:ergebnisse_s01_s09} zeigt die Messwerte der einmalig durchgefü
         S09 & DMS  & $<$0{,}1 & 2{,}0 & $<$0{,}1 & 100 & 1{,}91 \\
         \hline
     \end{tabular}}
+    \caption{Messergebnisse der deterministischen Szenarien S01--S09}
+    \label{tab:ergebnisse_s01_s09}
 \end{table}
 
-In den nicht überlasteten Szenarien (S01, S02, S05, S07, S09) erzielen beide Strategien eine Deadline-Einhaltungsrate von 100\,\% und eine Wartezeit von unter 0{,}1\,Sekunden -- die Warteschlange bleibt praktisch leer, da Jobs schneller abgearbeitet als neue eingereicht werden. In den Überlastungsszenarien (S03, S04, S06) treten hohe Wartezeiten und niedrige Deadline-Raten bei beiden Strategien nahezu identisch auf. Da alle Jobs in diesen Szenarien dieselbe Deadline besitzen, kann DMS keine differentielle Priorisierung vornehmen und verhält sich wie FIFO. S08 ist ein Grenzfall: Die Deadline entspricht exakt der Ausführungszeit (2\,s), sodass kein Puffer verbleibt und beide Strategien mit 1--2\,\% Deadline-Einhaltung scheitern.
+In den nicht überlasteten Szenarien (S01, S02, S05, S07, S09) werden Deadline-Einhaltungsraten von 100\,\% und eine Wartezeit von unter 0,1 Sekunden bei beiden Strategien erzielt. Das heißt, dass die Warteschlange praktisch leer bleibt da Jobs schneller abgearbeitet werden, als neue eingehen. In den Überlastungsszenarien (S03, S04, S06) treten erhöhte Wartezeiten und niedrige Deadline-Raten bei beiden Strategien gleichermaßen auf. S08 bildet hier einen Grenzfall. Da in diesem Fall die Deadline exakt der Ausführungszeit entspricht, kann nahezu kein Auftrag in die Deadline einhalten, weshalb die Einhaltungsrate bei 1--2\,\% liegt.
 
+Da quasi kein Unterschied zwischen FIFO und DMS messbar ist, werden diese Szenarien für die Wahl einer Strategie nicht berücksichtigt.
+
+\newpage
 \subsection{\textcolor{red}{Dynamische Szenarien (S10--S14)}}
 
-Tabelle~\ref{tab:ergebnisse_s10_s14_avg} zeigt die über 11 Läufe gemittelten Messwerte. Fett hervorgehobene Werte markieren die jeweils bessere Strategie pro Szenario.
+Tabelle~\ref{tab:ergebnisse_s10_s14_avg} zeigt die über 10 Läufe gemittelten Messwerte.
 
 \begin{table}[H]
     \centering
-    \caption{Gemittelte Messergebnisse der dynamischen Szenarien S10--S14 (Ø über 11 Läufe, je 100 Jobs)}
-    \label{tab:ergebnisse_s10_s14_avg}
     \resizebox{\linewidth}{!}{%
     \setlength{\arrayrulewidth}{0.3pt}
     \begin{tabular}{|l|l|r|r|r|r|r|}
@@ -953,38 +940,66 @@ Tabelle~\ref{tab:ergebnisse_s10_s14_avg} zeigt die über 11 Läufe gemittelten M
         S11 & DMS  & 36{,}1 & 41{,}2 & 70{,}3 & 36{,}6 & 0{,}75 \\
         \hline
         S12 & FIFO & 5{,}5 & 7{,}5 & 14{,}1 & 76{,}9 & 1{,}57 \\
-        S12 & DMS  & 5{,}5 & 7{,}5 & 20{,}9 & \textbf{99{,}7} & 1{,}57 \\
+        S12 & DMS  & 5{,}5 & 7{,}5 & 20{,}9 & 99{,}7 & 1{,}57 \\
         \hline
         S13 & FIFO & 29{,}5 & 34{,}2 & 64{,}3 & 24{,}7 & 0{,}82 \\
-        S13 & DMS  & \textbf{23{,}1} & \textbf{27{,}8} & 63{,}6 & \textbf{35{,}9} & 0{,}80 \\
+        S13 & DMS  & 23{,}1 & 27{,}8 & 63{,}6 & 35{,}9 & 0{,}80 \\
         \hline
         S14 & FIFO & 18{,}1 & 23{,}7 & 36{,}4 & 29{,}7 & 0{,}69 \\
-        S14 & DMS  & \textbf{15{,}1} & \textbf{20{,}7} & 44{,}0 & \textbf{37{,}7} & 0{,}69 \\
+        S14 & DMS  & 15{,}1 & 20{,}7 & 44{,}0 & 37{,}7 & 0{,}69 \\
         \hline
     \end{tabular}}
+    \caption{Gemittelte Messergebnisse der dynamischen Szenarien S10--S14 (Ø über 10 Läufe, je 100 Jobs)}
+    \label{tab:ergebnisse_s10_s14_avg}
 \end{table}
 
-In S10 und S11, in denen alle Jobs dieselbe Deadline erhalten, verhalten sich beide Algorithmen erwartungsgemäß nahezu identisch: DMS kann ohne variierende Deadlines keine Umordnung vornehmen und degeneriert zu FIFO-Verhalten. S12 liefert den markantesten Befund: Mit stark variierenden Deadlines (3--25\,s) und einem Burst-Ankunftsmuster priorisiert DMS zeitkritische Jobs konsequent vor und erzielt eine Deadline-Einhaltungsrate von \textbf{99{,}7\,\%}, während FIFO bei \textbf{76{,}9\,\%} verbleibt. In S13 und S14 -- mit Laufzeit-Ausreißern und individuell knapp gesetzten Deadlines -- reduziert DMS die durchschnittliche Wartezeit um 21{,}7\,\% (S13) bzw. 16{,}6\,\% (S14) und verbessert die Deadline-Einhaltungsrate in beiden Szenarien um über 8 Prozentpunkte.
+In S10 und S11 ist kein  Unterschied zwischen DMS und FIFO erkennbar. Dieses Verhalten tritt auf, da die Deadlines nicht variieren und somit der DMS zu einem FIFO-Verhalten degeneriert. durch das Szenario S12 wird deutlich, dass durch die stark variierenden Deadlines und ein Burst-Ankunftsmuster DMS zeitkritische Aufträge konsequent priorisiert werden und dabei eine Deadline Einhaltungsrate von 99,7\,\% erreicht wird. Währenddessen erreicht die FIFO Strategie nur 76,9\,\%. In S13 und S14 werden Laufzeit-Ausreißer und knapp gesetzte Deadlines abgebildet. Dabei ist erkennbar, dass die Wartezeit bei beiden Szenarien durch DMS deutlich verkürzt wird. Darüber hinaus wird auch die Einhaltungsrate für die Deadlines deutlich verbessert. Allerdings ist im Szenario S14 die maximale Wartezeit erhöht.
 
-% -------------------------------------------------------
 \section{\textcolor{red}{Auswertung und Algorithmusentscheidung}}
-% -------------------------------------------------------
+Die Messergebnisse zeigen klar, dass in Szenarien ohne Deadline-Variation FIFO und DMS gleichwertig sind. Sobald Aufträge unterschiedliche Deadlines tragen, erzielt DMS in fast allen betroffenen Szenarien bessere Ergebnisse. Insbesondere fällt auf, dass die Deadline-Einhaltungsrate, als zentrale Qualitätsgröße, verbessert wird. Die einzige Ausnahme bildet die maximale Wartezeit, die in einem Szenario durch den DMS Algorithmus leicht verschlechtert wird. 
 
-Die Messergebnisse zeigen ein konsistentes Bild: In Szenarien ohne Deadline-Variation sind FIFO und DMS gleichwertig; sobald Aufträge unterschiedliche Deadlines tragen, erzielt DMS in allen betroffenen Szenarien bessere Ergebnisse -- insbesondere bei der Deadline-Einhaltungsrate als zentraler Qualitätsgröße.
-
+\newpage
 \textbf{Begründung für die Wahl von DMS}
 
-Der entscheidende Faktor ist die Übereinstimmung zwischen dem Algorithmus und dem realen Anwendungsfall. Im OptimScheduler gibt jeder Aufrufer optional eine \texttt{maxLaufzeit} mit, die direkt als Deadline in den DMS-Algorithmus einfließt. Ein RT-Optimierungslauf mit kurzer \texttt{maxLaufzeit} wird dadurch automatisch gegenüber einem PP-Lauf mit großzügiger Zeitvorgabe priorisiert -- ohne dass Prioritäten explizit gesetzt werden müssen. Genau diese implizite, deadline-getriebene Priorisierung ist der strukturelle Vorteil von DMS gegenüber FIFO und adressiert direkt die in der Ist-Analyse identifizierte Schwäche des bestehenden Systems: Das fehlende typenübergreifende Scheduling und die fehlende Priorisierung.
+Der entscheidende Faktor ist die Übereinstimmung zwischen dem Algorithmus und dem realen Anwendungsfall. Im OptimScheduler gibt jeder Aufrufer optional eine \texttt{maxLaufzeit} mit, die direkt als Deadline in den DMS-Algorithmus einfließt. ein RT-Optimierungslauf mit kurzer \texttt{maxLaufzeit} wird dadurch automatisch gegenüber einem PP-Lauf mit großzügiger Zeitvorgabe priorisiert. Dabei muss keine explizite Priorisierung angegeben werden. Genau diese implizite, deadline-getriebene Priorisierung ist der strukturelle Vorteil von DMS gegenüber FIFO und addressiert direkt die in der Ist-Analyse identifiziert Schwäche des bestehenden Systems: das fehlende typenübergreifende Scheduling und die fehlende Priorisierung.
 
-Ein weiteres Argument für DMS ist sein Degradierungsverhalten: Erhalten alle Aufträge dieselbe Deadline oder keine \texttt{maxLaufzeit}, ordnet DMS die Warteschlange nicht um und verhält sich identisch zu FIFO. DMS stellt damit keine Regression gegenüber FIFO dar -- in den schlechtesten Fällen sind beide Algorithmen gleich, in den relevanten Fällen mit heterogenen Deadlines ist DMS klar überlegen.
+Ein weiterer Vorteil von DMS ist, dass er nicht schlechter ist, als FIFO. Das liegt daran, dass er sobald keine Priorisierung vorgenommen werden kann, beispielsweise durch fehlende \texttt{maxLaufzeit}, zu einem FIFO degeneriert. Das heißt dass falls kein DMS angewendet werden kann, der Algorithmus sich wie FIFO verhält.
 
-Dem gegenüber steht lediglich ein marginaler Nachteil: In S14 erzielt FIFO eine geringere maximale Wartezeit (36{,}4\,s vs. 44{,}0\,s bei DMS). Dieser Effekt entsteht, weil DMS durch die Umordnung zugunsten dringlicher Jobs einzelne Aufträge mit langer Deadline weiter nach hinten verschiebt. Da jedoch die Deadline-Einhaltungsrate und die durchschnittliche Wartezeit bei DMS besser sind, ist dieser Nachteil im Gesamtbild zu vernachlässigen.
+Dem gegenüber steht jedoch ein kleiner Nachteil. Und zwar ist in S14 erkennbar, dass FIFO eine geringere maximale Wartezeit aufweist (36{,}4\,s vs. 44{,}0\,s). Das passiert, weil durch die unterschiedlichen  Deadlines der DMS Algorithmus Aufträge mit langen Wartezeiten warten lässt und FIFO alle Aufträge gleichwertig behandelt. Allerdings sind dafür die durchschnittliche Wartezeit und die Einhaltungsrate der Deadline bei DMS besser, weshalb dieser Nachteil im Gesamtbild vernachlässigbar ist.
 
 \textbf{Zusammenfassung der Entscheidung}
 
-Auf Basis der Evaluationsergebnisse wird \textbf{Deadline Monotonic Scheduling (DMS)} als Scheduling-Strategie für den OptimScheduler empfohlen. DMS ist in allen Szenarien mindestens gleichwertig mit FIFO und erzielt in denjenigen Szenarien, die dem realen Betriebsprofil am nächsten kommen -- variierende Deadlines, heterogene Laufzeiten -- messbar bessere Ergebnisse. Die Implementierungskomplexität ist gering, da lediglich eine priorisierte Warteschlange nach Deadline-Zeitstempel benötigt wird, und der Algorithmus benötigt keinerlei Vorabwissen über Laufzeiten oder externe Prioritätsvergabe.
+Auf Basis der Evaluationsergebnisse wird das Deadline Monotonic Scheduling (DMS) als Scheduling-Strategie für den OptimScheduler verwendet. DMS ist in den meisten Aspekten mindestens gleichwertig zum FIFO Algorithmus und erzielt in denjenigen Szenarien, die dem realen Betriebsprofil am nächsten kommen, messbar bessere Ergebnisse. Die Implementierungskomplexität ist relativ gering, da lediglich eine priorisierte Warteschlange nach Deadline Zeitstempel benötigt wird. Der Algorithmus benötigt keinerlei Vorabwissen über Laufzeiten beziehungsweise externe Prioritätsvergabe.
 
 \chapter{\textcolor{red}{Fazit \& Ausblick}}
+
+\section{\textcolor{red}{Fazit}}
+Das Ziel der Bachelorarbeit war die Konzeption und Implementierung eines Webservices (OptimScheduler) zur Steuerung der SYNCROTESS-BM-Transport-optimierung. Ausgangspunkt dafür war eine Ist-Analyse des bestehenden Systems, in der strukturelle Einschränkungen des Backends identifiziert wurden. Zu den Einschränkungen gehört unter anderem eine starre Parallelitätsstruktur, eine isolierte FIFO-Warteschlange ohne typübergreifendes Scheduling, der ressourcenintensive Fork-Mechanismus sowie die fehlende Erreichbarkeit der Optimierer außerhalb des Tservs(Backend).
+
+Auf Grundlage dieser Erkenntnisse wurden anschließend funktionale und technische Anforderungen definiert. Der OptimScheduler soll die Aufträge für die Optimierung parallel verarbeiten, eine Warteschlange mit einem geeigneten Algorithmus verwalten, Ressourcen überwachen und die Laufzeiten begrenzen können. Die Implementierung als Spring-Boot-Webservice mit Docker und Kubernetes-Integration realisiert die fehlende Skalierbarkeit und entkoppelt den Scheduling Algorithmus inklusive der Ausführung der Optimierung vom Backend.
+
+Der zentrale Teil der Arbeit war die Wahl einer passenden Scheduling Strategie. Aus acht vorgestellten Algorithmen wurden sechs wegen nicht erfüllter verschiedener Ausschlusskriterien aussortiert. Es wurden nur noch der FIFO-Algorithmus und das Deadline Monotonic Scheduling (DMS) näher betrachtet. Beide Algorithmen wurden als austauschbare Prototypen implementiert und mit 14 Testszenarien mit insgesamt ungefähr 6000 Aufträgen getestet und verglichen.
+
+Die Ergebnisse der Evaluation zeigen ein konsistentes Bild. In Szenarien mit homogenen Deadlines verhalten sich beide Algorithmen gleichwertig. Wenn allerdings Szenarien mit heterogenen Deadlines betrachtet werden, übertrifft DMS den FIFO-Algorithmus. Es fällt auf, dass die Deadline Einhaltungsrate bei DMS höher und die durchschnittliche Wartezeit bei DMS geringer ist. Zusätzlich fällt auf, dass sich DMS bei homogenen Aufträgen, also bei fehlender Variation der Deadlines bzw. beim Fehlen einer Deadline, identisch zu FIFO verhält.
+
+Somit wurde das Eingangs formulierte Ziel erreicht. Es wurde eine empirisch gestützten Entscheidungsgrundlage für die Auswahl einer Scheduling-Strategie geschaffen. DMS wird als Scheduling-Algorithmus für den OptimScheduler empfohlen, da er die implizite, deadline-getriebene Priorisierung abgeleitet und so das in der Ist-Analyse identifizierte Problem des fehlenden typenübergreifenden Schedulings adressiert.
+
+\section{\textcolor{red}{Ausblick}}
+Die im Rahmen dieser Arbeit entstandene Implementierung hat bewusst evalutiven Charakter und ist nicht für den unmittelbaren Produktiveinsatz vorgesehen. Aus den Ergebnissen dieser Arbeit lassen sich jedoch eine Reihe konkreter Erweiterungen ableiten, die zur Produkttauglichkeit des Systems beitragen würden.
+
+\textbf{Integration der echten Optimierer:} Die Evaluation wurde zunächst lediglich mit einem Mock-Modell durchgeführt. Dabei wurde die Optimierungsberechnung durch einen sleep-Aufruf ersetzt. Ein naheliegender nächster Schritt ist die Anbindung der realen Optimierer-Binaries (ftlopt, coflo) sowie deren Ausführung als Kubernetes-Pod. Dabei muss außerdem die Ein- und Ausgabeschnittstelle des Optimierers in den Lebenszyklus integriert werden.
+
+\textbf{Kubernetes Integration:} Die geplante Systemarchitektur sieht vor, dass jeder Optimierungslauf als KUbernetes-Pod gestartet wird. Diese Funktionalität ist noch nicht implementiert. Derzeit wird dieser Teil mit Java Threads simuliert.  Die vollständige Kubernetes-Integration würde die angestrebte flexible Skalierbarkeit und ressourcenisolierte Ausführung der Optimierer ermöglichen.
+
+\textbf{Ressourcenüberwachung und Speicherprüfung:} Die Anforderungsanalyse sieht vor, dass die Auslastung von Arbeitsspeicher und CPU überprüft wird und dementsprechend die Anzahl der Aufträge, die gleichzeitig bearbeitet werden, variiert. In der aktuellen Implementierung ist diese Anzahl lediglich durch ein konfigurierbares Limit begrenzt. für den Produktiveinsatz wäre eine Ressourcenüberwachung wünschenswert.
+
+\textbf{Authentifizierung und Sicherheit:} Der OptimScheduler muss für den produktiven Einsatz noch eine Authentifizierungsfunktionalität erhalten. Diese wurde im bereits implementierten Prototypen nicht umgesetzt. Diese soll dann zur Absicherung der REST-Schnittstelle über beispielsweise den OAuth client credentials flow umgesetzt werden.
+
+\textbf{Starvation-Prävention für deadlinelose Aufträge:} Aufträge ohne \texttt{maxLaufzeit} erhalten praktisch eine unendliche Deadline, wodurch alle anderen Aufträge diesem Auftrag vorgezogen werden. Bei dauerhafter Überlastung des Systems können Aufträge dauerhaft übergangen werden. Um das in einer zukünftigen Version des Schedulers zu vermeiden, könnte man einen Aging-Mechanismus~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}} einbauen, wodurch mit zunehmender Wartezeit die Priorität schrittweise angehoben werden könnte.
+
+\newpage
+\bibliographystyle{plainnat}
+\bibliography{references}
 
 \newpage
 \section*{Eidesstattliche Erklärung}
