@@ -220,7 +220,7 @@ Da nun die Probleme des Ist-Zustandes des Tserv-Systems identifiziert wurden, we
 Der Optimscheduler soll in einem speziellen Umfeld entwickelt und betrieben werden. Die folgenden Vorbedingungen definieren die Rahmenbedingungen:
 
 \begin{itemize}
-    \item Der OptimScheduler wird als Webservice in Java entwickelt. Dabei wird das Framework Spring Boot~\textcolor{red}{\citep[Vgl.]{springboot2024}} verwendet
+    \item Der OptimScheduler wird als Webservice in Java entwickelt. Dabei wird das Framework Spring Boot \citep[Vgl.]{springboot2024} verwendet
     \item Angesprochen wird der Scheduler über eine REST-Schnittstelle
     \item Der OptimScheduler wird als alleinstehender Dienst implementiert, ohne direkte Verbindung mit dem Tserv
     \item Er kann auf einem separaten System gehostet werden, muss aber mit dem Tserv kommunizieren können
@@ -261,7 +261,7 @@ Ein Auftrag wird von einem externen Dienst an den OptimScheduler geschickt. Dies
 
 \section{\textcolor{red}{Softwarearchitektur und Technologien}}
 \begin{itemize}
-    \item \textbf{REST-API}~\textcolor{red}{\citep[Vgl.][S.76ff]{fielding2000}}: Der Scheduler stellt für die Optimierungsabfragen eine REST-Schnittstelle zur Verfügung
+    \item \textbf{REST-API} \citep[Vgl.][S.76ff]{fielding2000}: Der Scheduler stellt für die Optimierungsabfragen eine REST-Schnittstelle zur Verfügung
     \item \textbf{Eingabeformat}: Ein- und Ausgabe wird im Format JSON und CSV akzeptiert und verarbeitet
     \item \textbf{Parallelisierung}: Der Scheduler soll mehrere Prozesse für die Optimierung parallel verarbeiten können
     \item \textbf{Scheduling-Algorithmus}: Die Reihenfolge der Abarbeitung der wartenden Prozesse, wird durch einen Scheduling-Algorithmus bestimmt
@@ -274,19 +274,19 @@ Ein Auftrag wird von einem externen Dienst an den OptimScheduler geschickt. Dies
 Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 
 \subsection{\textcolor{red}{Non-Preemptive Priority Scheduling}}
-\textbf{Funktionsweise:} Jeder Auftrag bekommt eine statische Priorität zugewiesen. Die Aufträge mit der höheren Priorität werden gegenüber den mit geringerer Priortät bevorzugt verarbeitet. Ein laufender Prozess kann nicht unterbrochen werden auch wenn ein neuer Prozess mit höherer Priorität dazu kommt. Der neue Auftrag wird erst gestartet, nach dem ein vorheriger fertig geworden ist.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_priority}}
+\textbf{Funktionsweise:} Jeder Auftrag bekommt eine statische Priorität zugewiesen. Die Aufträge mit der höheren Priorität werden gegenüber den mit geringerer Priortät bevorzugt verarbeitet. Ein laufender Prozess kann nicht unterbrochen werden auch wenn ein neuer Prozess mit höherer Priorität dazu kommt. Der neue Auftrag wird erst gestartet, nach dem ein vorheriger fertig geworden ist.\citep[Vgl.][S.153]{tanenbaum2015}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
     \item[+] Relativ einfach zu implementieren
     \item[+] Ermöglicht es, zwischen wichtigeren und weniger wichtigen Aufträgen zu differenzieren
-    \item[-] Kann bei hoher Auslastung zu \textit{Starvation}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}} von Aufträgen mit geringer Priorität führen
+    \item[-] Kann bei hoher Auslastung zu \textit{Starvation} von Aufträgen mit geringer Priorität führen
     \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
     \item Scheduling-Typ: nicht präemptiv
 \end{itemize}
 
 \subsection{\textcolor{red}{Preemptive Priority Scheduling}}
-\textbf{Funktionsweise:} Auch hier bekommt jeder Auftrag eine statische Priorität hinzugefügt. Im Vergleich zum \textit{Non-Preemptive Priority Scheduling} kann hier eine höhere Priorität einen laufenden Prozess unterbrechen und ersetzen.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_priority}}
+\textbf{Funktionsweise:} Auch hier bekommt jeder Auftrag eine statische Priorität hinzugefügt. Im Vergleich zum \textit{Non-Preemptive Priority Scheduling} kann hier eine höhere Priorität einen laufenden Prozess unterbrechen und ersetzen. \citep[Vgl.][S.153]{tanenbaum2015}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -299,20 +299,20 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
     \item Scheduling-Typ: präemptiv
 \end{itemize}
 
-\subsection{\textcolor{red}{First in First Out (FIFO)}}
-\textbf{Funktionsweise:} Aufträge werden in der Reihenfolge bearbeitet, in der sie ankommen. Der erste eingegangene Auftrag wird auch als erstes bearbeitet. Ein neuer Auftrag wird nur dann gestartet, wenn der vorherige abgeschlossen wurde.~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}}
+\subsection{\textcolor{red}{First Come First Serve / First in First Out (FIFO)}}
+\textbf{Funktionsweise:} Aufträge werden in der Reihenfolge bearbeitet, in der sie ankommen. Der erste eingegangene Auftrag wird auch als erstes bearbeitet. Ein neuer Auftrag wird nur dann gestartet, wenn der vorherige abgeschlossen wurde.\citep[Vgl.][S.156f]{tanenbaum2015}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
     \item[+] Einfach zu implementieren
     \item[-] Keine Priorisierung möglich
-    \item[-] Risiko: \textit{Convoy Effect}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}} kann auftreten. Das heißt, dass ein langer Prozess alle anderen blockiert
+    \item[-] Risiko: \textit{Convoy Effect} \citep[Vgl.][S.157]{tanenbaum2015} kann auftreten. Das heißt, dass ein langer Prozess alle anderen blockiert
     \item Verbleibende Bearbeitungsdauer erforderlich?: Nein
     \item Scheduling-Typ: nicht präemptiv
 \end{itemize}
 
 \subsection{\textcolor{red}{Deadline Monotonic Scheduling (DMS)}}
-\textbf{Funktionsweise:} DMS ist, wie das \textit{Non-Preemptive Priority Scheduling} ein statisches Prioritäts-Scheduling-Verfahren. Hier wird die Deadline also auch statisch bestimmt, aber nicht direkt gesetzt, sondern mit einer Deadline also einer maximalen Bearbeitungszeit verknüpft. Hier gilt also: Der Auftrag mit der kürzeren Zeit zwischen jetzt und der Deadline wird als nächstes genommen.~\textcolor{red}{\citep[Vgl.][S.~46--61]{liu1973}}
+\textbf{Funktionsweise:} DMS ist, wie das \textit{Non-Preemptive Priority Scheduling} , ein statisches Prioritäts-Scheduling-Verfahren. Hier wird die Deadline also auch statisch bestimmt, aber nicht direkt gesetzt, sondern mit einer Deadline, also einer maximalen Bearbeitungszeit, verknüpft. Hier gilt also: Der Auftrag mit der kürzeren Zeit zwischen jetzt und der Deadline wird als nächstes genommen.\citep[Vgl.][S.30f]{salfner2010priority}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -325,7 +325,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Least Slack Time First (LSF)}}
-\textbf{Funktionsweise:} LSF berechnet für jeden Auftrag die \textit{Slack Time} (Slack Time = Deadline - Restlaufzeit - aktuelle Zeit). Dabei hat immer der Auftrag mit der geringsten \textit{Slack Time} die höchste Priorität. Dieser Algorithmus berücksichtigt also zusätzlich die verbleibende Rechenzeit.~\textcolor{red}{\citep[Vgl.][o.\,S.]{huberlin_echtzeit}}
+\textbf{Funktionsweise:} LSF berechnet für jeden Auftrag die \textit{Slack Time} (Slack Time = Deadline - Restlaufzeit - aktuelle Zeit). Dabei hat immer der Auftrag mit der geringsten \textit{Slack Time} die höchste Priorität. Dieser Algorithmus berücksichtigt also zusätzlich die verbleibende Rechenzeit.\citep[Vgl.][S.39ff]{salfner2010priority}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -339,7 +339,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Highest Response Ratio Next}}
-\textbf{Funktionsweise:} Bei diesem Scheduling-Algorithmus werden die Aufträge nach der sogenannten \textit{Response Ration} sortiert. Die Response Ratio wird berechnet als: $\frac{\text{Wartezeit} + \text{Bearbeitungszeit}}{\text{Bearbeitungszeit}}$.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_hrrn}} 
+\textbf{Funktionsweise:} Bei diesem Scheduling-Algorithmus werden die Aufträge nach der sogenannten \textit{Response Ration} sortiert. Die Response Ratio wird berechnet als: $\frac{\text{Wartezeit} + \text{Bearbeitungszeit}}{\text{Bearbeitungszeit}}$.\citep[Vgl.]{simic2024hrrn}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -352,7 +352,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Shortest Job First (SJF)}}
-\textbf{Funktionsweise:} Hier wird immer der Auftrag als nächstes gewählt, der die geringste Bearbeitungszeit hat. Der Prozess läuft, wenn er gestartet wurde, bis zum ende durch. Ziel dieses Algorithmus ist es, die Wartezeit zu minimieren, indem die kürzesten Aufträge immer zuerst abgearbeitet werden.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_srtf}}
+\textbf{Funktionsweise:} Hier wird immer der Auftrag als nächstes gewählt, der die geringste Bearbeitungszeit hat. Der Prozess läuft, wenn er gestartet wurde, bis zum ende durch. Ziel dieses Algorithmus ist es, die Wartezeit zu minimieren, indem die kürzesten Aufträge immer zuerst abgearbeitet werden.\citep[Vgl.][S.157f]{tanenbaum2015}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -365,7 +365,7 @@ Im folgenden werden einige Varianten von Scheduling Algorithmen vorgestellt.
 \end{itemize}
 
 \subsection{\textcolor{red}{Shortest Remaining Time First}}
-\textbf{Funktionsweise:} Dieser Algorithmus ist die präemtive Variante von SJF. Hier wird der Prozess mit der geringsten geschätzten Restlaufzeit bevorzugt. Wenn ein neuer Auftrag also ankommt und dessen Restlaufzeit geringer ist, als die des gerade laufenden Prozesse, dann wir der aktuell laufende Prozess unterbrochen und der neue Auftrag dafür abgearbeitet.~\textcolor{red}{\citep[Vgl.][o.\,S.]{geeksforgeeks_srtf}}
+\textbf{Funktionsweise:} Dieser Algorithmus ist die präemtive Variante von SJF. Hier wird der Prozess mit der geringsten geschätzten Restlaufzeit bevorzugt. Wenn ein neuer Auftrag also ankommt und dessen Restlaufzeit geringer ist, als die des gerade laufenden Prozesse, dann wir der aktuell laufende Prozess unterbrochen und der neue Auftrag dafür abgearbeitet.\citep[Vgl.][S.158]{tanenbaum2015}
 
 \textbf{Eigenschaften:}
 \begin{itemize}
@@ -481,7 +481,7 @@ Dieser Abschnitt beschreibt den groben Ablauf und den grundlegenden Aufbau des O
 \subsection{\textcolor{red}{Überblick}}
 Der OptimScheduler ist ein selbstständiger Webservice, der als Docker-Container betrieben wird. Der Webservice kapselt die gesamte Logik für die Steuerung der Ausführung die Optimierungsprozesse. Dadurch entkoppelt er gleichzeitig diese vom Tserv. Es können Optimierungsprozesse direkt über eine REST-Schnittstelle und nicht nur über eine Dateischnittstelle vom Tserv aufgerufen werden.
 
-Eine wesentliche Designentscheidung des Webservice ist, dass jeder Optimierungslauf als eigener \textbf{Kubernetes-Pod}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{kubernetes2024}} gestartet wird. Dadurch werden die einzelnen Optimierungsläufe vom Host-System isoliert; Ressourcen können somit pro Pod gezielter festgelegt werden und dadurch ist auch eine flexible Skalierung über die Kubernetes-Infrastruktur möglich.
+Eine wesentliche Designentscheidung des Webservice ist, dass jeder Optimierungslauf als eigener \textbf{Kubernetes-Pod} \citep[Vgl.]{kubernetes2024} gestartet wird. Dadurch werden die einzelnen Optimierungsläufe vom Host-System isoliert; Ressourcen können somit pro Pod gezielter festgelegt werden und dadurch ist auch eine flexible Skalierung über die Kubernetes-Infrastruktur möglich.
 
 \subsection{\textcolor{red}{Ablauf}}
 Der typische Ablauf einer Optimierungsanfrage ist wie folgt:
@@ -574,7 +574,7 @@ FIFO ist ein relativ einfaches Scheduling-Verfahren: Die eingehenden Optimierung
 
 Der größte Vorteil von FIFO liegt in der Vorhersehbarkeit. Jeder Auftrag wird  irgendwann ausgeführt. Dadurch wird \textit{Starvation}, also das Übergehen eines Auftrags, vermieden. Zudem hängt die Wartezeit eines Prozesses ausschließlich von den zuvor eingegangenen Prozessen ab.
 
-Ein bekanntes Problem des FIFO Algorithmus ist der sogenannte \textit{Convoy Effect}~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}}. Das bedeutet, dass ein langwieriger Prozess die Warteschlange blockiert, wobei die Dringlichkeit nicht berücksichtigt wird. In einem Szenario, in dem zeitkritische Aufträge bearbeitet werden sollen, kann das zu unerwünschten Verzögerungen führen.
+Ein bekanntes Problem des FIFO Algorithmus ist der sogenannte \textit{Convoy Effect}. Das bedeutet, dass ein langwieriger Prozess die Warteschlange blockiert, wobei die Dringlichkeit nicht berücksichtigt wird. In einem Szenario, in dem zeitkritische Aufträge bearbeitet werden sollen, kann das zu unerwünschten Verzögerungen führen.
 
 \subsubsection{\textcolor{red}{Schematische Darstellung}}
 Abbildung~\ref{fig:fifo_queue} zeigt den grundlegenden Aufbau einer FIFO-Warteschlange. Neue Aufträge werden am hinteren Ende eingereiht und am vorderen Ende entnommen.
@@ -648,7 +648,7 @@ In der Tabelle lässt sich erkennen, dass erst Job A, dann Job B und dann Job C 
 
 \subsection{\textcolor{red}{Deadline Monotonic Scheduling (DMS)}}
 \subsubsection{\textcolor{red}{Funktionsweise}}
-Beim Deadline Monotonic Scheduling~\textcolor{red}{\citep[Vgl.][S.~46--61]{liu1973}} ist die Ausführungsreihenfolge über die Deadlines der Aufträge bestimmt. Dabei hat der Auftrag mit der nächstliegenden Deadline die höchste Priorität.
+Beim Deadline Monotonic Scheduling ist die Ausführungsreihenfolge über die Deadlines der Aufträge bestimmt. Dabei hat der Auftrag mit der nächstliegenden Deadline die höchste Priorität.
  Diese Priorität wird ausschließlich aus der Deadline bestimmt und ist damit implizit. Es muss also keine Priorität von außen mitgegeben werden.
 
 In Verbindung mit dem OptimScheduler lässt sich die \texttt{maxLaufzeit} aus dem Anfrage-Payload als Deadline ableiten. Die Deadline ergibt sich dann aus dem Eingangszeitpunkt und der maximalen Laufzeit ($\text{Deadline} = t_\text{Eingang} + \texttt{maxLaufzeit}$). Wenn keine \texttt{maxLaufzeit} definiert ist, dann erhält der Auftrag die Deadline unendlich und hat damit automatisch die niedrigste Priorität.
@@ -995,7 +995,7 @@ Die im Rahmen dieser Arbeit entstandene Implementierung hat bewusst evalutiven C
 
 \textbf{Authentifizierung und Sicherheit:} Der OptimScheduler muss für den produktiven Einsatz noch eine Authentifizierungsfunktionalität erhalten. Diese wurde im bereits implementierten Prototypen nicht umgesetzt. Diese soll dann zur Absicherung der REST-Schnittstelle über beispielsweise den OAuth client credentials flow umgesetzt werden.
 
-\textbf{Starvation-Prävention für deadlinelose Aufträge:} Aufträge ohne \texttt{maxLaufzeit} erhalten praktisch eine unendliche Deadline, wodurch alle anderen Aufträge diesem Auftrag vorgezogen werden. Bei dauerhafter Überlastung des Systems können Aufträge dauerhaft übergangen werden. Um das in einer zukünftigen Version des Schedulers zu vermeiden, könnte man einen Aging-Mechanismus~\textcolor{red}{\citep[Vgl.][TODO: Seite]{silberschatz2018}} einbauen, wodurch mit zunehmender Wartezeit die Priorität schrittweise angehoben werden könnte.
+\textbf{Starvation-Prävention für deadlinelose Aufträge:} Aufträge ohne \texttt{maxLaufzeit} erhalten praktisch eine unendliche Deadline, wodurch alle anderen Aufträge diesem Auftrag vorgezogen werden. Bei dauerhafter Überlastung des Systems können Aufträge dauerhaft übergangen werden. Um das in einer zukünftigen Version des Schedulers zu vermeiden, könnte man einen Aging-Mechanismus einbauen, wodurch mit zunehmender Wartezeit die Priorität schrittweise angehoben werden könnte.
 
 \newpage
 \bibliographystyle{plainnat}
