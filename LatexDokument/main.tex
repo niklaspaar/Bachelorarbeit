@@ -56,6 +56,18 @@ eingesehen werden. Eine Weitergabe an Dritte sowie eine Veröffentlichung, Vervi
 Verwertung der Inhalte ist ohne ausdrückliche Genehmigung der INFORM GmbH nicht gestattet.
 \newpage
 
+\section*{Kurzfassung}
+Die von der INFORM GmbH entwickelte Softwarelösung SYNCROTESS BM unterstützt Unternehmen aus der Logistik- und Baustoffbranche bei der Transportplanung. Ein zentraler Bestandteil ist die Transportoptimierung, bei der spezialisierte Optimierungsprogramme -- sogenannte Optimierer -- auf Basis von Auftragsdaten optimale Dispositionsentscheidungen berechnen. Im bestehenden System werden diese Läufe als Fork-Prozesse innerhalb des zentralen Anwendungsservers Tserv ausgeführt. Dies führt zu einer starren Parallelitätsstruktur, fehlender typenübergreifender Priorisierung, eingeschränkter Skalierbarkeit sowie ausschließlicher Erreichbarkeit der Optimierer über den Tserv.
+
+Ziel dieser Arbeit ist es, die Optimierungsausführung durch einen eigenständigen Webservice -- den OptimScheduler -- vom Tserv zu entkoppeln, Aufträge über eine REST-Schnittstelle parallel zu verarbeiten und dabei eine geeignete Scheduling-Strategie einzusetzen. Eine wesentliche Herausforderung besteht darin, dass die Ausführungszeiten der Optimierer nicht im Voraus bekannt sind, was den Einsatz vieler klassischer Scheduling-Verfahren ausschließt.
+
+Zur Auswahl einer geeigneten Strategie wurden acht Scheduling-Algorithmen anhand von drei Ausschlusskriterien bewertet: Präemptivität, die Notwendigkeit bekannter Ausführungszeiten sowie das Erfordernis fester Prioritätsvorgaben. Als geeignete Verfahren verblieben FIFO (First In First Out) und das Deadline Monotonic Scheduling (DMS). Beide Algorithmen wurden als austauschbare Prototypen in einer Spring-Boot-Anwendung implementiert und anhand von 14 Testszenarien mit insgesamt rund 6.000 simulierten Aufträgen empirisch verglichen.
+
+Die Evaluationsergebnisse zeigen, dass FIFO und DMS in Szenarien mit einheitlichen Deadlines gleichwertig sind. Bei variierenden Deadlines erzielt DMS in nahezu allen Szenarien deutlich bessere Ergebnisse. Besonders deutlich ist dies in Szenario S12: DMS erreicht eine Deadline-Einhaltungsrate von 99,7\,\%, während FIFO nur 76,9\,\% erzielt. Auch in S13 und S14 übertrifft DMS den FIFO-Algorithmus hinsichtlich durchschnittlicher Wartezeit und Deadline-Einhaltungsrate.
+
+Auf dieser Grundlage wird DMS als Scheduling-Strategie für den OptimScheduler empfohlen. Er nutzt die \texttt{maxLaufzeit} aus dem Anfrage-Payload als implizite Deadline, sodass zeitkritische Aufträge automatisch priorisiert werden, ohne dass eine explizite Prioritätsvergabe erforderlich ist. Damit adressiert DMS die im Ist-Zustand identifizierte Schwäche des fehlenden typenübergreifenden Schedulings. Die vorliegende Implementierung hat evaluativen Charakter und bildet die Grundlage für eine zukünftige produktionsreife Erweiterung des OptimSchedulers.
+\newpage
+
 \tableofcontents
 
 \chapter{\textcolor{orange}{Einleitung}}
@@ -257,6 +269,7 @@ In dem Payload, der von dem externen Dienst an den Scheduler geschickt wird, ste
 Ein Auftrag wird von einem externen Dienst an den OptimScheduler geschickt. Dieser enthält keine Authentifizierung oder eine falsche Authentifizierung. In diesem Fall wird sofort eine Fehlermeldung an den Absender geschickt, dass eine Authentifizierung notwendig ist.
 
 \section{\textcolor{red}{Softwarearchitektur und Technologien}}
+Neben den funktionalen Anforderungen legen die folgenden technischen Anforderungen fest, wie der OptimScheduler aufgebaut sein und in welchem technologischen Rahmen er betrieben werden soll.
 \begin{itemize}
     \item \textbf{REST-API} \citep[Vgl.][S.76ff]{fielding2000}: Der Scheduler stellt für die Optimierungsabfragen eine REST-Schnittstelle zur Verfügung
     \item \textbf{Eingabeformat}: Ein- und Ausgabe wird im Format JSON und CSV akzeptiert und verarbeitet
